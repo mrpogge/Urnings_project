@@ -6,7 +6,6 @@ import matplotlib.pyplot as plt
 
 import main_urnings as mu
 
-
 ########################################################################################################################
 #setting up the simulation
 ########################################################################################################################
@@ -46,7 +45,7 @@ for i in range(n_items):
 #setting up the game environment
 ########################################################################################################################
 
-nomatchmaking_sim = mu.Urnings(game_type= "n_adaptive", players = players, items = items)
+nomatchmaking_sim = mu.Urnings(game_type= "adaptive", players = players, items = items)
 
 nomatchmaking_sim.play(n_games=10000)
 
@@ -62,7 +61,3 @@ for nplayers in range(n_player):
 
 print(estimated_score)
 print(player_true_scores / player_urn_sizes)
-
-
-
-

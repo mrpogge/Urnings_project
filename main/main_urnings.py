@@ -47,7 +47,7 @@ class Urnings:
             item_index = np.random.randint(0, len(self.items))
             
             return self.players[player_index], self.items[item_index]
-        else:
+        elif self.game_type == "adaptive":
             None
     
     def urnings_game(self, player, item, result = None):
@@ -109,7 +109,38 @@ class Urnings:
                 player.est = player.score / player.urn_size
                 item.est = item.score / item.urn_size
 
-        #print("Match between ", player.user_id, " and", item.user_id)
+        elif self.game_type == "adaptive":
+            
+            #updating scores
+            player_proposal = player.score  + result - expected_results
+            item_proposal = item.score  + (1 - result) - (1 - expected_results)
+
+            if player_proposal > player.urn_size:
+                player_proposal = player.urn_size
+            
+            if player_proposal < 0:
+                player_proposal = 0
+            
+            if item_proposal > item.urn_size:
+                item_proposal= item.urn_size
+            
+            if item_proposal < 0:
+                item_proposal = 0
+
+            #metropolis step
+            old_score = player.score * (player.urn_size - item.score) + (item.urn_size - player.score) * item.score
+            new_score = player_proposal * (player.urn_size - item_proposal) + (item.urn_size - player_proposal) * item_proposal
+            acceptance = min(1, old_score/new_score)
+            u = np.random.uniform()
+
+            if u < min(1, old_score/new_score):
+                #accept
+                player.score = player_proposal
+                item.score = item_proposal
+                player.est = player.score / player.urn_size
+                item.est = item.score / item.urn_size
+
+        print("Match between ", player.user_id, " and", item.user_id)
 
     def play(self, n_games):
         for ng in range(n_games):
