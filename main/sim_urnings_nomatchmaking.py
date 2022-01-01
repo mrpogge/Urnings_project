@@ -2,18 +2,62 @@ import pandas as pd
 import numpy as np
 import matplotlib as plt
 import scipy.stats as sp
+import matplotlib.pyplot as plt
 
-import main_urnings
+import main_urnings as mu
 
-#create true objects
-player_ids = []
-item_ids =  []
-numcodes = np.arange(1,101)
-for plyrs in range(len(numcodes)):
-    player_ids.append("player" + str(numcodes[plyrs]))
-    if plyrs < 50:
-        item_ids.append("item" + str(numcodes[plyrs]))
 
-player_true_scores = sp.norm.rvs(0,1, size = 100)
-item_true_scores = sp.norm.rvs(0,1, size = 50)
+########################################################################################################################
+#setting up the simulation
+########################################################################################################################
+
+#game settings
+n_player = 10
+n_items = 10
+starting_score = 50
+player_urn_sizes = 100
+item_urn_sizes = 100
+game_type = "n_adaptive"
+
+#true scores for players and items
+player_true_scores = np.random.normal(0, 1, n_player)
+item_true_scores = np.random.normal(0, 1, n_items)
+player_true_scores = np.exp(player_true_scores) / (1 + np.exp(player_true_scores)) * player_urn_sizes
+item_true_scores = np.exp(item_true_scores) / (1 + np.exp(item_true_scores)) * item_urn_sizes
+
+
+
+#creating players and items
+players = []
+items = []
+for i in range(n_player):
+    pname = "player" + str(i)
+    
+    player = mu.Player(user_id = pname, score = starting_score, urn_size = player_urn_sizes, true_score = player_true_scores[i])
+    players.append(player)
+
+for i in range(n_items):
+    iname = "item" + str(i)
+
+    item = mu.Player(user_id = iname, score = starting_score, urn_size = item_urn_sizes, true_score = item_true_scores[i])
+    items.append(item)
+
+#setting up the game environment
+
+nomatchmaking_sim = mu.Urnings(game_type= "n_adaptive", players = players, items = items)
+
+nomatchmaking_sim.play(n_games=10000)
+
+estimated_score = []
+for nplayers in range(n_player):
+
+    est = nomatchmaking_sim.players[nplayers].est 
+    estimated_score.append(est)
+
+
+print(estimated_score)
+print(player_true_scores / player_urn_sizes)
+
+
+
 
