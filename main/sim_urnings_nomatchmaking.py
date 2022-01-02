@@ -48,7 +48,7 @@ for i in range(n_items):
 
 nomatchmaking_sim = mu.Urnings(game_type= "n_adaptive", players = players, items = items)
 
-nomatchmaking_sim.play(n_games=10000)
+nomatchmaking_sim.play(n_games=1000)
 
 estimated_score = []
 for nplayers in range(n_player):
@@ -62,6 +62,8 @@ for nplayers in range(n_player):
 
 print(estimated_score)
 print(player_true_scores / player_urn_sizes)
+
+print(nomatchmaking_sim.adaptive_rule())
 
 
 

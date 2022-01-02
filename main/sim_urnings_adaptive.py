@@ -45,14 +45,14 @@ for i in range(n_items):
 #setting up the game environment
 ########################################################################################################################
 
-nomatchmaking_sim = mu.Urnings(game_type= "adaptive", players = players, items = items)
+adaptive_sim = mu.Urnings(game_type= "adaptive", players = players, items = items)
 
-nomatchmaking_sim.play(n_games=10000)
+adaptive_sim.play(n_games=10000)
 
 estimated_score = []
 for nplayers in range(n_player):
 
-    est = nomatchmaking_sim.players[nplayers].est 
+    est = adaptive_sim.players[nplayers].est 
     estimated_score.append(est)
 
 ########################################################################################################################

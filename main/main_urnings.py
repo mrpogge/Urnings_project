@@ -38,7 +38,22 @@ class Urnings:
         self.standings = []
         self.players = players
         self.items = items
+
+    def adaptive_rule_normal(self):
         
+        adaptive_matrix = np.zeros(shape=(len(self.players), len(self.items)))
+        for i in range(len(self.players)):
+            for j in range(len(self.items)):
+
+                R_i = self.players[i].score
+                R_j = self.items[j].score
+                n_i = self.players[i].urn_size
+                n_j = self.items[j].urn_size
+                prob = np.exp(-2*(np.log((R_i + 1) / (n_i-R_i + 1)) - np.log((R_j + 1) / (n_j-R_j + 1)))**2)
+
+                adaptive_matrix[i, j] = prob 
+
+        return adaptive_matrix  
 
     def matchmaking(self):
 
@@ -48,8 +63,13 @@ class Urnings:
             
             return self.players[player_index], self.items[item_index]
         elif self.game_type == "adaptive":
-            None
-    
+            adaptive_matrix = self.adaptive_rule_normal()
+
+            player_index = np.random.randint(0, len(self.players))
+            item_index = np.random.choice(np.arange(len(self.items)), 1, p = (adaptive_matrix[player_index,:] / np.sum(adaptive_matrix[player_index,:])))
+
+            return self.players[player_index], self.items[int(item_index)]
+
     def urnings_game(self, player, item, result = None):
         if type(player) != Player:
             raise TypeError("Player needs to be Player type")
@@ -111,9 +131,13 @@ class Urnings:
 
         elif self.game_type == "adaptive":
             
+            current_item_prob = np.exp(-2*(np.log((player.score + 1) / (player.urn_size- player.score + 1)) - np.log((item.score + 1) / (item.urn_size - item.score + 1)))**2)
+
             #updating scores
             player_proposal = player.score  + result - expected_results
             item_proposal = item.score  + (1 - result) - (1 - expected_results)
+            
+            proposed_item_prob = np.exp(-2*(np.log((player_proposal + 1) / (player.urn_size - player_proposal + 1)) - np.log((item_proposal + 1) / (item.urn_size - item_proposal + 1)))**2)
 
             if player_proposal > player.urn_size:
                 player_proposal = player.urn_size
@@ -130,7 +154,8 @@ class Urnings:
             #metropolis step
             old_score = player.score * (player.urn_size - item.score) + (item.urn_size - player.score) * item.score
             new_score = player_proposal * (player.urn_size - item_proposal) + (item.urn_size - player_proposal) * item_proposal
-            acceptance = min(1, old_score/new_score)
+            item_selection_bias = proposed_item_prob / current_item_prob
+            acceptance = min(1, (old_score/new_score) * item_selection_bias)
             u = np.random.uniform()
 
             if u < min(1, old_score/new_score):
@@ -146,6 +171,9 @@ class Urnings:
         for ng in range(n_games):
             current_player, current_item = self.matchmaking()
             self.urnings_game(current_player, current_item)
+
+
+    
 
 
         
