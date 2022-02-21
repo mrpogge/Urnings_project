@@ -17,14 +17,13 @@ n_items = 10
 starting_score = 50
 player_urn_sizes = 100
 item_urn_sizes = 100
-game_type = "n_adaptive"
+adaptivity = "n_adaptive"
 
 #true scores for players and items
 player_true_scores = np.random.normal(0, 1, n_player)
 item_true_scores = np.random.normal(0, 1, n_items)
 player_true_scores = np.exp(player_true_scores) / (1 + np.exp(player_true_scores)) * player_urn_sizes
 item_true_scores = np.exp(item_true_scores) / (1 + np.exp(item_true_scores)) * item_urn_sizes
-
 
 
 #creating players and items
@@ -46,7 +45,8 @@ for i in range(n_items):
 #setting up the game environment
 ########################################################################################################################
 
-nomatchmaking_sim = mu.Urnings(game_type= "n_adaptive", players = players, items = items)
+nomatchmaking_rules = mu.Game_Type(adaptivity="n_adaptive", alg_type="Urnings1")
+nomatchmaking_sim = mu.Urnings(players = players, items = items, game_type = nomatchmaking_rules)
 
 nomatchmaking_sim.play(n_games=1000)
 
@@ -63,7 +63,7 @@ for nplayers in range(n_player):
 print(estimated_score)
 print(player_true_scores / player_urn_sizes)
 
-print(nomatchmaking_sim.adaptive_rule())
+
 
 
 

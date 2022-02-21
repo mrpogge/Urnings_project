@@ -1,11 +1,14 @@
+from ast import Pass
+from operator import xor
 import pandas as pd
 import numpy as np
 import matplotlib as plt
 import scipy.stats as sp
+from sympy import Nor
 
 class Player:
 #class default constructor
-    def __init__(self, user_id, score, urn_size, true_score = None): 
+    def __init__(self, user_id, score, urn_size, true_score): 
         if score > urn_size:
             raise ValueError("The score can't be higher then the urn size.")
 
@@ -31,13 +34,119 @@ class Player:
             self.sim_true_y = sim_y
             return sim_y
 
+class Game_Type:
+    def __init__(self, adaptivity, alg_type, updating_type = "one_dim"):
+        self.adaptivity = adaptivity
+        self.alg_type = alg_type
+        self.updating_type = updating_type
+    
+    def draw_rule(self, player, item):
+        
+        if self.alg_type == "Urnings1":
+            #simulating the observed value
+            while player.sim_true_y == item.sim_true_y:
+                player.draw(true_score_logic = True)
+                item.draw(true_score_logic = True)
+                
+            result = player.sim_true_y
+            player.sim_true_y = item.sim_true_y = 8
 
+            #calculating expected score
+            while player.sim_y == item.sim_y:
+                player.draw()
+                item.draw()
+            
+            expected_results = player.sim_y
+            player.sim_y = item.sim_y = 8
+        
+        elif self.alg_type == "Urnings2":
+            #simulating the observed value
+            while player.sim_true_y == item.sim_true_y:
+                player.draw(true_score_logic = True)
+                item.draw(true_score_logic = True)
+                
+            result = player.sim_true_y
+            player.sim_true_y = item.sim_true_y = 8
+
+            #CHECK WHAT HAPPENS EXACTLY IN MARIAS'S PAPER
+            #calculating expected value
+            player.score += result
+            player.urn_size += result
+            player.est = player.score / player.urn_size
+            item.score += 1 - result
+            item.urn_size += 1 - result
+            item.est = item.score / item.urn_size
+
+            while player.sim_y == item.sim_y:
+                    player.draw()
+                    item.draw()
+                
+            expected_results = player.sim_y
+            player.sim_y = item.sim_y = 8
+
+        return result, expected_results
+
+    
+    def updating_rule(self, player, item, result, expected_results):
+        
+        if self.updating_type == "one_dim":
+            #updating scores
+            player_prop = player.score  + result - expected_results
+            item_prop = item.score  + (1 - result) - (1 - expected_results)
+
+            #Making sure that the urnsize is bigger than the total number of balls obviously
+            if player_prop > player.urn_size:
+                player_prop = player.urn_size
+                
+            if player_prop < 0:
+                player_prop = 0
+                
+            if item_prop > item.urn_size:
+                item_prop = item.urn_size
+                
+            if item_prop < 0:
+                item_prop = 0
+            
+        return player_prop, item_prop
+
+    def metropolis_correction(self, player, item, player_proposal, item_proposal):
+        
+        #algorithm type to provide the first part of the metropolis correction 
+        if self.alg_type == "Urnings1":
+            old_score = player.score * (player.urn_size - item.score) + (item.urn_size - player.score) * item.score
+            new_score = player_proposal * (player.urn_size - item_proposal) + (item.urn_size - player_proposal) * item_proposal
+
+            metropolis_corrector = old_score/new_score
+        
+        elif self.alg_type == "Urnings2":
+            
+            metropolis_corrector = 1
+        
+        return metropolis_corrector
+
+    def adaptivity_correction(self, player, item, player_proposal, item_proposal):
+        
+        if self.adaptivity == "n_adaptive":
+            adaptivity_corrector = 1
+
+        else:
+            #change this to be a function or method of some sort
+            current_item_prob = np.exp(-2*(np.log((player.score + 1) / (player.urn_size- player.score + 1)) - np.log((item.score + 1) / (item.urn_size - item.score + 1)))**2)
+            proposed_item_prob = np.exp(-2*(np.log((player_proposal + 1) / (player.urn_size - player_proposal + 1)) - np.log((item_proposal + 1) / (item.urn_size - item_proposal + 1)))**2)
+
+            adaptivity_corrector = proposed_item_prob/current_item_prob
+
+        return adaptivity_corrector
+  
+        
 class Urnings:
-    def __init__(self, game_type, players, items):
-        self.game_type = game_type
+    def __init__(self, players, items, game_type):
         self.standings = []
         self.players = players
         self.items = items
+        self.game_type = game_type
+    
+    #One can define other adaptivity rules, I will add this to gametype later
 
     def adaptive_rule_normal(self):
         
@@ -53,16 +162,17 @@ class Urnings:
 
                 adaptive_matrix[i, j] = prob 
 
-        return adaptive_matrix  
+        return adaptive_matrix
 
     def matchmaking(self):
 
-        if self.game_type == "n_adaptive":
+        if self.game_type.adaptivity == "n_adaptive":
             player_index = np.random.randint(0, len(self.players))
             item_index = np.random.randint(0, len(self.items))
             
             return self.players[player_index], self.items[item_index]
-        elif self.game_type == "adaptive":
+
+        elif self.game_type.adaptivity == "adaptive":
             adaptive_matrix = self.adaptive_rule_normal()
 
             player_index = np.random.randint(0, len(self.players))
@@ -70,100 +180,30 @@ class Urnings:
 
             return self.players[player_index], self.items[int(item_index)]
 
-    def urnings_game(self, player, item, result = None):
+    def urnings_game(self, player, item):
         if type(player) != Player:
             raise TypeError("Player needs to be Player type")
 
         if type(item) != Player:
             raise TypeError("Item needs to be Player type")
         
-        #simulation or real data analysis
-        if result is None and player.true_score is not None and item.true_score is not None:
+        result, expected_results = self.game_type.draw_rule(player, item)
 
-            while player.sim_true_y == item.sim_true_y:
-                player.draw(true_score_logic = True)
-                item.draw(true_score_logic = True)
-            
-            result = player.sim_true_y
-            player.sim_true_y = item.sim_true_y = 8
+        player_prop, item_prop = self.game_type.updating_rule(player, item, result, expected_results)
 
-        elif result not in [0,1]:
-            raise ValueError("Result is a binary variable: either a win of the player (1), or a loss of the player (0)")
-        
-        #calculating expected score
-        while player.sim_y == item.sim_y:
-            player.draw()
-            item.draw()
-        
-        expected_results = player.sim_y
-        player.sim_y = item.sim_y = 8
+        #adding the metropolis step if needed
+        metropolis_corrector = self.game_type.metropolis_correction(player, item, player_prop, item_prop)
+        adaptivity_corrector = self.game_type.adaptivity_correction(player, item, player_prop, item_prop)
 
-        if self.game_type == "n_adaptive":
+        acceptance = min(1, metropolis_corrector * adaptivity_corrector)
+        u = np.random.uniform()
 
-            #updating scores
-            player_proposal = player.score  + result - expected_results
-            item_proposal = item.score  + (1 - result) - (1 - expected_results)
-
-            if player_proposal > player.urn_size:
-                player_proposal = player.urn_size
-            
-            if player_proposal < 0:
-                player_proposal = 0
-            
-            if item_proposal > item.urn_size:
-                item_proposal= item.urn_size
-            
-            if item_proposal < 0:
-                item_proposal = 0
-
-            #metropolis step
-            old_score = player.score * (player.urn_size - item.score) + (item.urn_size - player.score) * item.score
-            new_score = player_proposal * (player.urn_size - item_proposal) + (item.urn_size - player_proposal) * item_proposal
-            acceptance = min(1, old_score/new_score)
-            u = np.random.uniform()
-
-            if u < min(1, old_score/new_score):
-                #accept
-                player.score = player_proposal
-                item.score = item_proposal
-                player.est = player.score / player.urn_size
-                item.est = item.score / item.urn_size
-
-        elif self.game_type == "adaptive":
-            
-            current_item_prob = np.exp(-2*(np.log((player.score + 1) / (player.urn_size- player.score + 1)) - np.log((item.score + 1) / (item.urn_size - item.score + 1)))**2)
-
-            #updating scores
-            player_proposal = player.score  + result - expected_results
-            item_proposal = item.score  + (1 - result) - (1 - expected_results)
-            
-            proposed_item_prob = np.exp(-2*(np.log((player_proposal + 1) / (player.urn_size - player_proposal + 1)) - np.log((item_proposal + 1) / (item.urn_size - item_proposal + 1)))**2)
-
-            if player_proposal > player.urn_size:
-                player_proposal = player.urn_size
-            
-            if player_proposal < 0:
-                player_proposal = 0
-            
-            if item_proposal > item.urn_size:
-                item_proposal= item.urn_size
-            
-            if item_proposal < 0:
-                item_proposal = 0
-
-            #metropolis step
-            old_score = player.score * (player.urn_size - item.score) + (item.urn_size - player.score) * item.score
-            new_score = player_proposal * (player.urn_size - item_proposal) + (item.urn_size - player_proposal) * item_proposal
-            item_selection_bias = proposed_item_prob / current_item_prob
-            acceptance = min(1, (old_score/new_score) * item_selection_bias)
-            u = np.random.uniform()
-
-            if u < min(1, old_score/new_score):
-                #accept
-                player.score = player_proposal
-                item.score = item_proposal
-                player.est = player.score / player.urn_size
-                item.est = item.score / item.urn_size
+        if u < acceptance:
+        #accept
+            player.score = player_prop
+            item.score = item_prop
+            player.est = player.score / player.urn_size
+            item.est = item.score / item.urn_size
 
         print("Match between ", player.user_id, " and", item.user_id)
 

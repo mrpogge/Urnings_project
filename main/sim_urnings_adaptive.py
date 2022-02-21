@@ -44,8 +44,8 @@ for i in range(n_items):
 ########################################################################################################################
 #setting up the game environment
 ########################################################################################################################
-
-adaptive_sim = mu.Urnings(game_type= "adaptive", players = players, items = items)
+adaptive_rule = mu.Game_Type(adaptivity="adaptive", alg_type="Urnings1")
+adaptive_sim = mu.Urnings(players = players, items = items, game_type=adaptive_rule)
 
 adaptive_sim.play(n_games=10000)
 
