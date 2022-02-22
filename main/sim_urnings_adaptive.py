@@ -16,13 +16,12 @@ n_items = 10
 starting_score = 50
 player_urn_sizes = 100
 item_urn_sizes = 100
-game_type = "n_adaptive"
 
 #true scores for players and items
 player_true_scores = np.random.normal(0, 1, n_player)
 item_true_scores = np.random.normal(0, 1, n_items)
-player_true_scores = np.exp(player_true_scores) / (1 + np.exp(player_true_scores)) * player_urn_sizes
-item_true_scores = np.exp(item_true_scores) / (1 + np.exp(item_true_scores)) * item_urn_sizes
+player_true_scores = np.exp(player_true_scores) / (1 + np.exp(player_true_scores)) 
+item_true_scores = np.exp(item_true_scores) / (1 + np.exp(item_true_scores)) 
 
 
 
@@ -32,22 +31,22 @@ items = []
 for i in range(n_player):
     pname = "player" + str(i)
     
-    player = mu.Player(user_id = pname, score = starting_score, urn_size = player_urn_sizes, true_score = player_true_scores[i])
+    player = mu.Player(user_id = pname, score = starting_score, urn_size = player_urn_sizes, true_value = player_true_scores[i])
     players.append(player)
 
 for i in range(n_items):
     iname = "item" + str(i)
 
-    item = mu.Player(user_id = iname, score = starting_score, urn_size = item_urn_sizes, true_score = item_true_scores[i])
+    item = mu.Player(user_id = iname, score = starting_score, urn_size = item_urn_sizes, true_value = item_true_scores[i])
     items.append(item)
 
 ########################################################################################################################
 #setting up the game environment
 ########################################################################################################################
-adaptive_rule = mu.Game_Type(adaptivity="adaptive", alg_type="Urnings1")
+adaptive_rule = mu.Game_Type(adaptivity="adaptive", alg_type="Urnings2")
 adaptive_sim = mu.Urnings(players = players, items = items, game_type=adaptive_rule)
 
-adaptive_sim.play(n_games=10000)
+adaptive_sim.play(n_games=1000)
 
 estimated_score = []
 for nplayers in range(n_player):
@@ -61,3 +60,5 @@ for nplayers in range(n_player):
 
 print(estimated_score)
 print(player_true_scores / player_urn_sizes)
+
+print("players container: ", players[3].container)

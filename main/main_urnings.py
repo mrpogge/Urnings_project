@@ -1,14 +1,14 @@
-from ast import Pass
-from operator import xor
 import pandas as pd
 import numpy as np
 import matplotlib as plt
 import scipy.stats as sp
-from sympy import Nor
+import statsmodels.api as sm
+from statsmodels.graphics import tsaplots
+
 
 class Player:
 #class default constructor
-    def __init__(self, user_id, score, urn_size, true_score): 
+    def __init__(self, user_id, score, urn_size, true_value): 
         if score > urn_size:
             raise ValueError("The score can't be higher then the urn size.")
 
@@ -16,10 +16,13 @@ class Player:
         self.score = score
         self.urn_size = urn_size
         self.est = self.score/self.urn_size
-        self.true_score = true_score
-        self.true_value = self.true_score/self.urn_size
+        self.true_value = true_value
         self.sim_y = 8
         self.sim_true_y = 8
+
+        #creating a container
+        self.container = np.array([self.score])
+        self.differential_container = np.array([0])
 
     def draw(self, true_score_logic = False):
 
@@ -33,6 +36,25 @@ class Player:
             sim_y = drawing.rvs(size = 1)
             self.sim_true_y = sim_y
             return sim_y
+
+    def autocorrelation(self, lag, plots = False, so = False):
+        
+        #calculating autocorrelation for the player's urn chain
+        acf_player = sm.tsa.acf(self.container)
+
+        if plots == True:
+            
+            fig = tsaplots.plot_acf(self.container, lags = lag)
+
+        if so == True:
+            
+            acf_second_order_player = sm.tsa.acf(self.differential_container)
+
+            return acf_second_order_player
+        else: 
+            return acf_player 
+
+        
 
 class Game_Type:
     def __init__(self, adaptivity, alg_type, updating_type = "one_dim"):
@@ -71,11 +93,21 @@ class Game_Type:
             #CHECK WHAT HAPPENS EXACTLY IN MARIAS'S PAPER
             #calculating expected value
             player.score += result
-            player.urn_size += result
             player.est = player.score / player.urn_size
             item.score += 1 - result
-            item.urn_size += 1 - result
             item.est = item.score / item.urn_size
+
+            if player.score > player.urn_size:
+                player.score = player.urn_size
+                
+            if player.score < 0:
+                player.score = 0
+                
+            if item.score > item.urn_size:
+                item.score = item.urn_size
+                
+            if item.score < 0:
+                item.score = 0
 
             while player.sim_y == item.sim_y:
                     player.draw()
@@ -83,6 +115,12 @@ class Game_Type:
                 
             expected_results = player.sim_y
             player.sim_y = item.sim_y = 8
+            
+            #returning to the original urn conig
+            player.score -= result
+            player.est = player.score / player.urn_size
+            item.score -= 1 - result
+            item.est = item.score / item.urn_size
 
         return result, expected_results
 
@@ -198,14 +236,28 @@ class Urnings:
         acceptance = min(1, metropolis_corrector * adaptivity_corrector)
         u = np.random.uniform()
 
+        player_prev = player.score
+        item_prev = item.score
+
         if u < acceptance:
-        #accept
             player.score = player_prop
             item.score = item_prop
             player.est = player.score / player.urn_size
             item.est = item.score / item.urn_size
 
-        print("Match between ", player.user_id, " and", item.user_id)
+        #appending new update to the container
+        player.container = np.append(player.container, player.score)
+        item.container = np.append(item.container, item.score)
+
+        #calculating the difference
+        player_diff = player.score - player_prev
+        item_diff = item.score - item_prev
+
+        #appending second order results
+        player.differential_container = np.append(player.differential_container, player_diff)
+        item.differential_container = np.append(item.differential_container, item_diff)
+
+        #print("Match between ", player.user_id, " and", item.user_id)
 
     def play(self, n_games):
         for ng in range(n_games):
