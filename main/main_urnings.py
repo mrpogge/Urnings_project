@@ -40,7 +40,7 @@ class Player:
     def autocorrelation(self, lag, plots = False):
         
         #calculating autocorrelation for the player's urn chain
-        acf_player = sm.tsa.acf(self.container, lags= lag)
+        acf_player = sm.tsa.acf(self.container, nlags= lag)
 
         if plots == True:
             
@@ -51,7 +51,7 @@ class Player:
 
     def so_autocorrelation(self, lag, plots = False):
         #calculating autocorrelation for the second order chain
-        acf_so = sm.tsa.acf(self.differential_container, lags = lag)
+        acf_so = sm.tsa.acf(self.differential_container, nlags = lag)
 
         if plots == True:
             
