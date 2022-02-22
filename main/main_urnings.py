@@ -59,6 +59,18 @@ class Player:
 
     
         return acf_so
+    
+    def convergence_with_known(self, plots = False):
+
+        true_vec = np.repeat(self.true_value * self.urn_size, repeats=len(self.container))
+
+        diff_vec = self.container - true_vec
+
+        if plots == True:
+            #make it prettier
+            fig = plt.plot(diff_vec)
+
+
 
         
 
