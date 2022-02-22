@@ -37,22 +37,28 @@ class Player:
             self.sim_true_y = sim_y
             return sim_y
 
-    def autocorrelation(self, lag, plots = False, so = False):
+    def autocorrelation(self, lag, plots = False):
         
         #calculating autocorrelation for the player's urn chain
-        acf_player = sm.tsa.acf(self.container)
+        acf_player = sm.tsa.acf(self.container, lags= lag)
 
         if plots == True:
             
             fig = tsaplots.plot_acf(self.container, lags = lag)
 
-        if so == True:
-            
-            acf_second_order_player = sm.tsa.acf(self.differential_container)
+    
+        return acf_player 
 
-            return acf_second_order_player
-        else: 
-            return acf_player 
+    def so_autocorrelation(self, lag, plots = False):
+        #calculating autocorrelation for the second order chain
+        acf_so = sm.tsa.acf(self.differential_container, lags = lag)
+
+        if plots == True:
+            
+            fig = tsaplots.plot_acf(self.differential_container, lags = lag)
+
+    
+        return acf_so
 
         
 
