@@ -70,10 +70,8 @@ class Player:
             
             fig = tsaplots.plot_acf(self.differential_container, lags = lag)
 
-    
         return acf_so
-    
-        
+            
 
 class Game_Type:
     def __init__(self, adaptivity, alg_type, updating_type = "one_dim"):
