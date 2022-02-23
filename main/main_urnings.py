@@ -5,13 +5,13 @@ import scipy.stats as sp
 import statsmodels.api as sm
 from statsmodels.graphics import tsaplots
 
+
 class Player:
 #class default constructor
-    def __init__(self, user_id, score, urn_size, true_value, so_score = 5): 
+    def __init__(self, user_id, score, urn_size, true_value): 
         if score > urn_size:
             raise ValueError("The score can't be higher then the urn size.")
 
-        #basic attributes
         self.user_id = user_id
         self.score = score
         self.urn_size = urn_size
@@ -20,14 +20,9 @@ class Player:
         self.sim_y = 8
         self.sim_true_y = 8
 
-        #attributes of the second order tracker
-        self.so_score = np.array([so_score, so_score, so_score])
-        self.so_urn_size = self.so_score * 3
-        
         #creating a container
         self.container = np.array([self.score])
         self.differential_container = np.array([0])
-        self.so_container = self.so_score 
 
     def draw(self, true_score_logic = False):
 
@@ -41,14 +36,6 @@ class Player:
             sim_y = drawing.rvs(size = 1)
             self.sim_true_y = sim_y
             return sim_y
-
-    def draw_so(self):
-        
-        #expected second order result
-        expected_so = np.random.multinomial(1, self.so_score/self.so_urn_size)
-
-        return expected_so
-
 
     def autocorrelation(self, lag, plots = False):
         
@@ -70,8 +57,11 @@ class Player:
             
             fig = tsaplots.plot_acf(self.differential_container, lags = lag)
 
+    
         return acf_so
-            
+
+
+        
 
 class Game_Type:
     def __init__(self, adaptivity, alg_type, updating_type = "one_dim"):
@@ -270,26 +260,9 @@ class Urnings:
         player_diff = player.score - player_prev
         item_diff = item.score - item_prev
 
-        #unleashing the power of the second order tracker
-        if player_diff == 1:
-            result_so = np.array([1, 0, 0])
-        elif player_diff == 0:
-            result_so = np.array([0, 1, 0])
-        elif player_diff == -1:
-            result_so = np.array([0, 0, 1])
-
-        #drawing the expected value
-        expected_so = player.draw_so()
-
-        #updating so urns
-        player.so_score = player.so_score + result_so - expected_so
-
         #appending second order results
         player.differential_container = np.append(player.differential_container, player_diff)
         item.differential_container = np.append(item.differential_container, item_diff)
-
-        #appending second order probabilities
-        player.so_container = np.append(player.so_container, player.so_score)
 
         #print("Match between ", player.user_id, " and", item.user_id)
 
