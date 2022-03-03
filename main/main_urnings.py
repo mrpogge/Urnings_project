@@ -235,6 +235,7 @@ class Urnings:
 
             return self.players[player_index], self.items[int(item_index)]
 
+
     def urnings_game(self, player, item):
         if type(player) != Player:
             raise TypeError("Player needs to be Player type")
@@ -293,10 +294,18 @@ class Urnings:
 
         #print("Match between ", player.user_id, " and", item.user_id)
 
-    def play(self, n_games):
+    def play(self, n_games, test = False):
         for ng in range(n_games):
-            current_player, current_item = self.matchmaking()
-            self.urnings_game(current_player, current_item)
+            if test == True:
+                for pl in range(len(self.players)):
+                    item_index = np.random.randint(0, len(self.items))
+                    current_item = self.items[item_index]
+                    current_player = self.players[pl]
+                    self.urnings_game(current_player, current_item)
+            else:
+                current_player, current_item = self.matchmaking()
+                self.urnings_game(current_player, current_item)
+
 
 
     
