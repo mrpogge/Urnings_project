@@ -32,13 +32,11 @@ class Player:
     def draw(self, true_score_logic = False):
 
         if true_score_logic == False:
-            drawing = sp.bernoulli(self.est)
-            sim_y = drawing.rvs(size = 1)
+            sim_y = np.random.binomial(1, self.est)
             self.sim_y = sim_y
             return  sim_y
         else:
-            drawing = sp.bernoulli(self.true_value)
-            sim_y = drawing.rvs(size = 1)
+            sim_y = np.random.binomial(1, self.true_value)
             self.sim_true_y = sim_y
             return sim_y
 
