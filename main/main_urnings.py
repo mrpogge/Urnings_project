@@ -108,9 +108,9 @@ class Game_Type:
             #CHECK WHAT HAPPENS EXACTLY IN MARIAS'S PAPER
             #calculating expected value
             player.score += result
-            player.est = player.score / player.urn_size
+            player.est = player.score / (player.urn_size + 1)
             item.score += 1 - result
-            item.est = item.score / item.urn_size
+            item.est = item.score / (item.urn_size + 1)
 
             if player.score > player.urn_size:
                 player.score = player.urn_size

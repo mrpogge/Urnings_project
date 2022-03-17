@@ -6,42 +6,41 @@ import matplotlib.pyplot as plt
 import main_urnings as mu
 
 #parameters
-true_values = [0.5, 0.6, 0.7, 0.8, 0.9]
 player_urn_sizes = [6, 10, 14, 18, 50]
+change = [0.0001, 0.0005, 0.001, 0.002]
 
 #fixed parameters
 n_player = 5000
 n_items = 1000
 item_urn_sizes = 100
 n_sim = 100
+true_value = 0.5
 
 #container for the results
-urnings_array = np.zeros((n_player, n_sim + 1, len(true_values) * len(player_urn_sizes)))
+urnings_array = np.zeros((n_player, n_sim + 1, len(change) * len(player_urn_sizes)))
 
 counter = 0
 
-for tv in range(len(true_values)):
+for cg in range(len(change)):
     for pus in range(len(player_urn_sizes)):
 
-        print("Run no ", counter, "Simulation with true score: ", true_values[tv], " and urn size: ", player_urn_sizes[pus])
+        print("Run no ", counter, "Simulation with change: ", change[cg], "per item and urn size: ", player_urn_sizes[pus])
 
-        np.random.seed(13181912)
-
+        np.random.seed(13181912) #my student number
         #game settings
         starting_score = int(player_urn_sizes[pus]/2)
         player_urn_size = player_urn_sizes[pus]
         
 
         #true scores for players and items
-        item_true_values = np.random.uniform(0.01, 0.99, n_items)
+        item_true_values = np.random.uniform(0.01, 0.99, n_items) 
         item_starting_score = np.zeros(n_items)
-           
 
         #creating players and items
         players = []
         for i in range(n_player):
             pname = "player" + str(i)
-            player = mu.Player(user_id = pname, score = starting_score, urn_size = player_urn_size, true_value = true_values[tv], so_score=10)
+            player = mu.Player(user_id = pname, score = starting_score, urn_size = player_urn_size, true_value = true_value, so_score=10)
             players.append(player)
 
         items = []
@@ -52,10 +51,15 @@ for tv in range(len(true_values)):
             items.append(item)
 
 
-        game_rule = mu.Game_Type(adaptivity="n_adaptive", alg_type="Urnings2")
+        game_rule = mu.Game_Type(adaptivity="adaptive", alg_type="Urnings2")
         game_sim = mu.Urnings(players = players, items = items, game_type = game_rule)
-        game_sim.play(n_games=n_sim, test = True)
 
+        for i in range(n_sim):  
+            game_sim.play(n_games=1, test = True)
+            for pl in players:
+                pl.true_value += change[cg]
+
+    
         for pl in range(n_player):
             row = players[pl].container
             urnings_array[pl,:, counter] = row

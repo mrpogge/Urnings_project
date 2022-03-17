@@ -52,7 +52,7 @@ for tv in range(len(true_values)):
             items.append(item)
 
 
-        game_rule = mu.Game_Type(adaptivity="n_adaptive", alg_type="Urnings2")
+        game_rule = mu.Game_Type(adaptivity="adaptive", alg_type="Urnings2")
         game_sim = mu.Urnings(players = players, items = items, game_type = game_rule)
         game_sim.play(n_games=n_sim, test = True)
 
