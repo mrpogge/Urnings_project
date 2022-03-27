@@ -8,7 +8,9 @@ from statsmodels.graphics import tsaplots
 
 class Player:
 #class default constructor
-    def __init__(self, user_id, score, urn_size, true_value, multiple_urn = False): 
+    def __init__(self, user_id, score, urn_size, true_value, multiple_urn = False, n_urns = None): 
+            
+        self.multiple_urn = multiple_urn
         if score > urn_size:
             raise ValueError("The score can't be higher then the urn size.")
         if multiple_urn == False:
@@ -25,11 +27,25 @@ class Player:
             self.container = np.array([self.score])
             self.estimate_container = np.array([self.est])
             self.differential_container = np.array([0])
+            self.urn_container = np.array([0])
+        else:
+            self.user_id = user_id
+            self.score = np.repeat(score, n_urns)
+            self.urn_size = urn_size
+            self.est = np.mean(self.score / self.urn_size)
+            self.true_value = true_value
+            self.n_urns = n_urns
+            self.sim_y = 8
+            self.sim_true_y = 8
+
+            #creating a container
+            self.container = np.array(np.mean(self.score))
+            self.estimate_container = np.array([self.est])
+            self.differential_container = np.array([0])
+            self.urn_container = np.array([0])
         
 
-
     def draw(self, true_score_logic = False):
-
         if true_score_logic == False:
             sim_y = np.random.binomial(1, self.est)
             self.sim_y = sim_y
@@ -38,6 +54,7 @@ class Player:
             sim_y = np.random.binomial(1, self.true_value)
             self.sim_true_y = sim_y
             return sim_y
+        
 
     def autocorrelation(self, lag, plots = False):
         
@@ -69,6 +86,7 @@ class Game_Type:
                 updating_type = "one_dim", 
                 paired_update = False, 
                 adaptive_urn = False, 
+                multiple_urn = False,
                 min_urn = None,
                 max_urn = None,
                 freq_change = None,
@@ -80,6 +98,7 @@ class Game_Type:
         self.updating_type = updating_type
         self.item_pair_update = paired_update
         self.adaptive_urn = adaptive_urn
+        self.multiple_urn = multiple_urn
         self.min_urn = min_urn
         self.max_urn = max_urn
         self.freq_change = freq_change
@@ -108,7 +127,19 @@ class Game_Type:
             
             expected_results = player.sim_y
             player.sim_y = item.sim_y = 8
-        
+
+            #filling multiple urns 
+            if self.multiple_urn == True:
+                expected_vector = np.zeros(player.n_urns)
+                expected_vector[0] = expected_results
+                for mu in range(1, player.n_urn):
+                    while player.sim_y == item.sim_y:
+                        player.draw()
+                        item.draw()
+                    expected_vector[mu] = player.sim_y
+                    player.sim_y = item.sim_y = 8
+                
+
         elif self.alg_type == "Urnings2":
             #simulating the observed value
             while player.sim_true_y == item.sim_true_y:
@@ -122,19 +153,34 @@ class Game_Type:
             #calculating expected value
             player.est = (player.score + result) / (player.urn_size + 1)
             item.est = (item.score + 1 - result) / (item.urn_size + 1)
-
+            
+            print(player.sim_y, item.sim_y, player.sim_y == item.sim_y)
             while player.sim_y == item.sim_y:
                     player.draw()
                     item.draw()
                 
             expected_results = player.sim_y
             player.sim_y = item.sim_y = 8
-            
-            #returning to the original urn conig
+
+            #checking if we need to update multiple urns
+            if self.multiple_urn == True:
+                expected_vector = np.zeros(player.n_urns)
+                expected_vector[0] = expected_results 
+                for mu in range(1, player.n_urns):
+                    while player.sim_y == item.sim_y:
+                        player.draw()
+                        item.draw()
+                    expected_vector[mu] = player.sim_y 
+                    player.sim_y = item.sim_y = 8
+
+            #returning to the original urn config
             player.est = player.score / player.urn_size
             item.est = item.score / item.urn_size
-
-        return result, expected_results
+        
+        if self.multiple_urn == False:
+            return result, expected_results
+        else:
+            return result, expected_vector
 
     
     def updating_rule(self, player, item, result, expected_results):
@@ -144,19 +190,32 @@ class Game_Type:
             player_prop = player.score  + result - expected_results
             item_prop = item.score  + (1 - result) - (1 - expected_results)
 
-            #Making sure that the urnsize is bigger than the total number of balls obviously
-            if player_prop > player.urn_size:
-                player_prop = player.urn_size
-                
-            if player_prop < 0:
-                player_prop = 0
-                
-            if item_prop > item.urn_size:
-                item_prop = item.urn_size
-                
-            if item_prop < 0:
-                item_prop = 0
-            
+            #Making sure that the urnsize is bigger than the total number of balls
+            if self.multiple_urn == False:
+                if player_prop > player.urn_size:
+                    player_prop = player.urn_size
+                    
+                if player_prop < 0:
+                    player_prop = 0
+                    
+                if item_prop > item.urn_size:
+                    item_prop = item.urn_size
+                    
+                if item_prop < 0:
+                    item_prop = 0
+            else:
+                player_prop = np.array(player_prop)
+                if np.any(player_prop > player.urn_size):
+                    player_prop[np.where(player_prop > player.urn_size)[0]] = player.urn_size
+                if np.any(player_prop < 0):
+                    player_prop[np.where(player_prop < 0)[0]] = 0
+
+                if item_prop > item.urn_size:
+                    item_prop = item.urn_size
+                    
+                if item_prop < 0:
+                    item_prop = 0
+
         return player_prop, item_prop
 
     def metropolis_correction(self, player, item, player_proposal, item_proposal):
@@ -341,6 +400,10 @@ class Urnings:
         #appending second order results
         player.differential_container = np.append(player.differential_container, player_diff)
         item.differential_container = np.append(item.differential_container, item_diff)
+
+        #appending urn_size 
+        player.urn_container = np.append(player.urn_container, player.urn_size)
+        item.urn_container = np.append(item.urn_container, item.urn_size)
 
 
     def play(self, n_games, test = False):
