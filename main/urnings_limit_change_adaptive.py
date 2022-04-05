@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+import pickle as pkl 
 
 #importing the urnings algortihm
 import main_urnings as mu
@@ -40,7 +41,7 @@ for cg in range(len(change)):
         players = []
         for i in range(n_player):
             pname = "player" + str(i)
-            player = mu.Player(user_id = pname, score = starting_score, urn_size = player_urn_size, true_value = true_value, so_score=10)
+            player = mu.Player(user_id = pname, score = starting_score, urn_size = player_urn_size, true_value = true_value)
             players.append(player)
 
         items = []
@@ -51,7 +52,7 @@ for cg in range(len(change)):
             items.append(item)
 
 
-        game_rule = mu.Game_Type(adaptivity="adaptive", alg_type="Urnings2")
+        game_rule = mu.Game_Type(adaptivity="adaptive", alg_type="Urnings2", paired_update=True)
         game_sim = mu.Urnings(players = players, items = items, game_type = game_rule)
 
         for i in range(n_sim):  
@@ -61,10 +62,21 @@ for cg in range(len(change)):
 
     
         for pl in range(n_player):
-            row = players[pl].container
+            row = players[pl].estimate_container
             urnings_array[pl,:, counter] = row
         
         counter += 1
 
 
 np.save("urnings_array_limit_change_adaptive", urnings_array)
+
+players_file = "players_limit_change_adaptive.pkl"
+items_file = "items_limit_change_adaptive.pkl"
+
+open_players_file = open(players_file, "wb")
+pkl.dump(players, open_players_file)
+open_players_file.close()
+
+open_items_file = open(items_file, "wb")
+pkl.dump(items, open_players_file)
+open_items_file.close()
