@@ -11,7 +11,7 @@ player_urn_sizes = [6, 10, 14, 18, 50]
 change = [0.0001, 0.0005, 0.001, 0.002]
 
 #fixed parameters
-n_player = 5000
+n_player = 500
 n_items = 1000
 item_urn_sizes = 1000
 n_sim = 100

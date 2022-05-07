@@ -11,7 +11,7 @@ true_values = [0.6, 0.7, 0.8, 0.9]
 player_urn_sizes = [6, 10, 14, 18, 50]
 
 #fixed parameters
-n_player = 5000
+n_player = 500
 n_items = 1000
 item_urn_sizes = 1000
 n_sim = 300
@@ -26,7 +26,7 @@ for tv in range(len(true_values)):
 
         print("Run no ", counter, "Simulation with true score: ", true_values[tv], " and urn size: ", player_urn_sizes[pus], "adaptive")
 
-        np.random.seed(13181912)
+        np.random.seed(13181911)
 
         #game settings
         starting_score = int(player_urn_sizes[pus]/2)

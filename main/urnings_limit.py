@@ -8,11 +8,10 @@ import main_urnings as mu
 
 #parameters
 true_values = [0.6, 0.7, 0.8, 0.9]
-true_values_rev = [0.4, 0.3, 0.2, 0.1]
 player_urn_sizes = [6, 10, 14, 18, 50]
 
 #fixed parameters
-n_player = 2500
+n_player = 1000
 n_items = 1000
 item_urn_sizes = 100
 n_sim = 300
@@ -27,7 +26,7 @@ for tv in range(len(true_values)):
 
         print("Run no ", counter, "Simulation with true score: ", true_values[tv], " and urn size: ", player_urn_sizes[pus], 'n_adaptive')
 
-        np.random.seed(13181912)
+        #np.random.seed(13181918)
 
         #game settings
         starting_score = int(player_urn_sizes[pus]/2)
@@ -53,7 +52,8 @@ for tv in range(len(true_values)):
             item = mu.Player(user_id = iname, score = item_starting_score[i], urn_size = item_urn_sizes, true_value = item_true_values[i])
             items.append(item)
 
-        game_rule = mu.Game_Type(adaptivity="n_adaptive", alg_type="Urnings2", paired_update= False)
+    
+        game_rule = mu.Game_Type(adaptivity="n_adaptive", alg_type="Urnings2", paired_update= True)
         game_sim = mu.Urnings(players = players, items = items, game_type = game_rule)
         game_sim.play(n_games=n_sim, test = True)
 

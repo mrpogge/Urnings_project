@@ -1,6 +1,10 @@
 import numpy as np
 import scipy.stats as sp
 import scipy.special as sps
+import itertools
+import matplotlib.pyplot as plt
+
+
 
 def binomial_gof(array, urn_size, true_p):
     a_len = len(array)
@@ -48,3 +52,55 @@ def frequency_check(array, set):
             elements_count[element] = 1
     
     return elements_count
+
+
+def all_binary_combination(window):
+
+    lst = [list(i) for i in itertools.product([-1, 1], repeat=window)]
+    binary_combinations = np.array(lst)
+    return binary_combinations
+
+
+#plt.hist(np.mean(all_binary_combination(10) * np.array([0,1,1,0,0,-1,-1,1,-1,0]), axis=1))
+
+def MSE(col_means, true_value):
+   mse =  np.sum((true_value - col_means) ** 2) / len(col_means)
+   return mse
+
+def coverage(urnings_matrix, true_value, nominal_coverage = False):
+
+    n_sim = urnings_matrix.shape[1]
+    col_lower = np.zeros(n_sim)
+    col_upper = np.zeros(n_sim)
+    coverage = 0
+    for i in range(n_sim):
+        confint = np.percentile(urnings_matrix[:,i] , [5, 95])
+        col_lower[i] = confint[0]
+        col_upper[i] = confint[1]
+        #calculating coverage
+        if confint[0] < true_value < confint[1]:
+            coverage += 1
+
+    coverage = coverage / n_sim
+
+    if nominal_coverage == True:
+        None
+
+    return coverage
+
+def hitting_time(col_means, true_value, tol = 0.01):
+    SE_true_value = tol
+    #print out the iteration when the mean was in this error radius
+    error_radius_logical = []
+    
+    for clm in col_means:
+        error_radius_logical.append((true_value - SE_true_value) < clm < (true_value + SE_true_value))
+    
+    trues_vec = np.where(error_radius_logical)[0]
+    if len(trues_vec) > 0:
+        hitting_time = np.min(trues_vec)
+    else:
+        hitting_time = 999
+    
+    return hitting_time
+
