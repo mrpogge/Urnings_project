@@ -1,3 +1,13 @@
+#mac data
+.DS_Store
+
+#ignore ipython notebooks
+*.ipynb
+*.csv
+
+#ignore ideas
+ideas/
+
 #ignore simulation results
 urnings_array_limit.npy
 urnings_array_limit_change.npy
