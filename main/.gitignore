@@ -6,7 +6,10 @@
 *.csv
 
 #ignore ideas
-ideas/
+change_point_analysis/
+correlation_analysis/
+simulation_results/
+trial_notebooks/
 
 #ignore simulation results
 urnings_array_limit.npy
@@ -15,7 +18,15 @@ urnings_array_limit_adaptive.npy
 urnings_array_limit_change_adaptive
 urnings_array_aurnsize.npy
 urnings_array_aurnsize_adaptive.npy
+urnings_array_aurnsize_perm.npy
+urnings_array_limit_change.npy
+urnings_array_perm.npy
+urinings_array_sourn.npy
+urnings_array_sourn_adaptive.npy
+
+
 
 #ignore data
 df0507.csv
+
 

@@ -3,6 +3,7 @@ import scipy.stats as sp
 import scipy.special as sps
 import itertools
 import matplotlib.pyplot as plt
+from sqlalchemy import true
 
 
 
@@ -63,11 +64,19 @@ def all_binary_combination(window):
 
 #plt.hist(np.mean(all_binary_combination(10) * np.array([0,1,1,0,0,-1,-1,1,-1,0]), axis=1))
 
-def MSE(col_means, true_value):
-   mse =  np.sum((true_value - col_means) ** 2) / len(col_means)
-   return mse
+def MSE(col_means, true_value, change = None):
+    mse =  np.sum((true_value - col_means) ** 2) / len(col_means)
+    if change is not None:
+        true_value = []
+        for i in range(len(col_means)):
+           true_value.append(0.5 + i * change)
+        
+        true_value = np.array(true_value)
+        mse = np.sum((true_value - col_means) ** 2) / len(col_means)
 
-def coverage(urnings_matrix, true_value, nominal_coverage = False):
+    return mse
+
+def coverage(urnings_matrix, true_value, change = None):
 
     n_sim = urnings_matrix.shape[1]
     col_lower = np.zeros(n_sim)
@@ -83,9 +92,16 @@ def coverage(urnings_matrix, true_value, nominal_coverage = False):
 
     coverage = coverage / n_sim
 
-    if nominal_coverage == True:
-        None
-
+    if change is not None:
+        coverage = 0
+        true_value = 0.5
+        for i in range(n_sim):
+            if confint[0] < true_value < confint[1]:
+                coverage += 1
+            true_value += change
+    
+    coverage = coverage / n_sim
+    
     return coverage
 
 def hitting_time(col_means, true_value, tol = 0.01):
