@@ -6,100 +6,190 @@ import scipy.stats as sp
 import statsmodels.api as sm
 from statsmodels.graphics import tsaplots
 import utilities as util
+import typing 
+from typing import Type
 
 class Player:
-#class default constructor
-    def __init__(self, user_id, score, urn_size, true_value, so_urn_size = 10, multiple_urn = False): 
+    """
+    class Player
+        Player object constructor. It is used to create players and items which can play in the adaptive learning system
+
+        attributes:
+            user_id: str
+                a string indicating the user id
+            score: int
+                the current number of green balls in the user's urn 
+            urn_size: int
+                the (current) size of the player's urn
+            est: float
+                the current estimate of the player's urn
+            true_value: float
+                the true ability of the student (used in simulation)
+            sim_y: int
+                helper attribute for draws from player urns
+            sim_true_y: int
+                helper attribute for draws from player urns (used in simulation)
+            so_urn_size: int
+                size of the second order urnings (used if Game_Type.adaptive_urn_type = "second order urnings")
+            so_score: int
+                current number of green balls in the player's second order urn
+            so_est: float
+                current second order estimate of the player
+            container: np.array
+                a numpy array containing the scores of the player over multiple games in the system
+            estimate_container: np.array
+                a numpy array containing the estimates of the player over multiple games in the system
+            differential_container: np.array 
+                    TODO: check whether it works if the adaptive urnsize algos are online
+                a numpy array containing the direction of change of the player's score
+            urn_container: np.array
+                a numpy array containing the urn size of the player over multiple games in the system (relevant if the adaptive urn algos are online)
+            so_container: np.array
+                a numpy array containing the second order estimates of the player over multiple games in the system
+            idx: int
+                an id created when the user enters a game
+
+        methods:
+            __eq__(other: Type[Player]):
+                an equivalence function which checks whether two player objects are the same
+            find(id: int):
+                a function with boolean output indicating whether the given player has the inputed id or not
+            draw(true_score_logic:bool = False)
+                a function governing the draws from urns if the true score logic is true we are drawing with the true probability (used in simulation)
+            so_draw():
+                a function governing the draws from the second order urns
+            autocorrelation(lag: int, plots: bool = False):
+                a function which calculates the autocorrelation for the chain of estimates
+            so_autocorrelation(lag: int, plots: bool = False):
+                a function calculating the autocorrelation for the differential container
+    """
+    def __init__(self, user_id: str, score: int, urn_size: int, true_value: float, so_urn_size: int = 10): 
+
+        #TODO: implementing player declaration errors
         if score > urn_size:
             raise ValueError("The score can't be higher then the urn size.")
-        if multiple_urn == False:
-            #basic attributes
-            self.user_id = user_id
-            self.score = score
-            self.urn_size = urn_size
-            self.est = self.score/self.urn_size
-            self.true_value = true_value
-            self.sim_y = 8
-            self.sim_true_y = 8
 
-            #second-order urnings
-            self.so_urn_size = so_urn_size
-            self.so_score = int(np.round(so_urn_size / 2))
-            self.so_est = self.so_score / self.so_urn_size
-            
-            #creating a container
-            self.container = np.array([self.score])
-            self.estimate_container = np.array([self.est])
-            self.differential_container = np.array([0])
-            self.urn_container = np.array([self.urn_size])
-            self.so_container = np.array([self.so_est])
-            #save the number of green balls per item 
-            #save the urn_size
+        #basic attributes
+        self.user_id = user_id
+        self.score = score
+        self.urn_size = urn_size
+        self.est = self.score/self.urn_size
+        self.true_value = true_value
+        self.sim_y = 8
+        self.sim_true_y = 8
 
-            #utility attribute
-            self.idx = None
+        #second-order urnings
+        self.so_urn_size = so_urn_size
+        self.so_score = int(np.round(so_urn_size / 2))
+        self.so_est = self.so_score / self.so_urn_size
+        
+        #creating a container
+        self.container = np.array([self.score])
+        self.estimate_container = np.array([self.est])
+        self.differential_container = np.array([0])
+        self.urn_container = np.array([self.urn_size])
+        self.so_container = np.array([self.so_est])
+
+        #utility attribute
+        self.idx = None
     
     def __eq__(self, other):
         return self.user_id == other.user_id
     
-    def find(self, id):
+    def find(self, id:int):
         return self.user_id == id
     
 
-    def draw(self, true_score_logic = False):
-
+    def draw(self, true_score_logic: bool = False):
+       #drawing the expected result based on the most frequent estimate
         if true_score_logic == False:
             sim_y = np.random.binomial(1, self.est)
             self.sim_y = sim_y
             return  sim_y
+        #drawing the simulated outcome
         else:
             sim_y = np.random.binomial(1, self.true_value)
             self.sim_true_y = sim_y
             return sim_y
+
     def so_draw(self):
+        #drawing the expected result based on the most frequent second order estimate
         sim_y = np.random.binomial(1, self.so_est)
         self.sim_y = sim_y
         return sim_y
 
-    def autocorrelation(self, lag, plots = False):
-        
+    def autocorrelation(self, lag: int, plots: bool = False):
         #calculating autocorrelation for the player's urn chain
-        acf_player = sm.tsa.acf(self.container, nlags= lag)
+        acf_player = sm.tsa.acf(self.estimate_container, nlags= lag)
 
+        #if true plot the results
         if plots == True:
-            
             fig = tsaplots.plot_acf(self.container, lags = lag)
 
-    
         return acf_player 
 
-    def so_autocorrelation(self, lag, plots = False):
+    def so_autocorrelation(self, lag:int , plots: bool = False):
         #calculating autocorrelation for the second order chain
         acf_so = sm.tsa.acf(self.differential_container, nlags = lag)
 
-        if plots == True:
-            
+        #if true plot the results
+        if plots == True: 
             fig = tsaplots.plot_acf(self.differential_container, lags = lag)
 
         return acf_so
             
 
 class Game_Type:
+    """
+    class Game_Type:
+        a class to setup the different analysis and simulation options for the game environment, ensures the modular architecture
+
+        attributes:
+            adaptivity: str
+                takes values from ["n_adaptive", "adaptive"], governs the item selection
+            alg_type: str
+                takes values from ["Urnings1", "Urnings2"], choses the type of algorithm to use
+            updating_type: str
+                currently only one_dimensional TODO: implement multidimensional, response time and polytomous urning and ELO rating system
+            paired_update: bool
+                indicates the use of paired update
+            adaptive_urn: bool
+                indicates the use of adaptive urn algorithms
+            adaptive_urn_type: str
+                takes values from ["permutation", "second_order_urnings"], choses the type of adaptive urn size algorithm
+            min_urn: int
+                the minimum urn value (used in adaptive urn size algorithms)
+            max_urn: int
+                the maximim urn value (used in adaptive urn size algorithms)
+            freq_change: int
+                the frequency (iteration) to change the urn size (used in adaptive_urn_type = "permutation" witn permutation_test = False)
+            window: int
+                the size of the moving window (used in adaptive_urn_type = "permutation")
+            bound: int
+                the number of wins which is considered a winstreak (used in adaptive_urn_type = "permutation" witn permutation_test = False)
+            permutation_test: bool
+                indicates whether we use permutation test or not
+            n_permutations: int
+                indicates the number of permutations generated if window < 15 the algorithm uses exact test
+            perm_p_val: float
+                p value for the permutation test
+
+    """
     def __init__(self, 
-                adaptivity,
-                alg_type, 
-                updating_type = "one_dim", 
-                paired_update = False, 
-                adaptive_urn = False,
+                adaptivity: str,
+                alg_type: str, 
+                updating_type: str = "one_dim", 
+                paired_update: bool = False, 
+                adaptive_urn: bool = False,
                 adaptive_urn_type = None, 
                 min_urn = None,
                 max_urn = None,
                 freq_change = None,
-                window = 2,
+                window: int = 2,
                 bound = None,
-                permutation_test = False,
-                n_permutations = 1000,
-                perm_p_val = 0.05):
+                permutation_test: bool = False,
+                n_permutations: int = 1000,
+                perm_p_val: float = 0.05):
 
         self.adaptivity = adaptivity
         self.alg_type = alg_type
@@ -331,26 +421,84 @@ class AlsData:
 
         
 class Urnings:
-    def __init__(self, players, items, game_type, data = None):
-        self.standings = []
+    """
+    class Urnings: 
+        A framework which saves all the chosen game options and let the Players and Items play the Urnings Game.
+        Both simulation and Data analysis moduls are available.
+
+        attributes: 
+            players: list[Player]
+                list of Player objects we would like to analyse, representing the students/players in the adaptive learning system
+                For details see Player.__doc__().
+            items: list[Player]
+                list of Player objects we would like to analyse, representing the items in the adaptive learnings system.
+                For details see Player.__doc__().
+            game_type: Game_Type
+                A Game_Type object which save all the options we want to declare before we start the learning system. 
+                For details see Game_Type.__doc__()
+            data: AlsData
+                An AlsData object which contains the serialized, and restructured data, it enables us to create the Player objects and a punchcard which 
+                governs the data's item selection procedure. 
+                For details see Als Data.__doc__()
+            queue_pos: dict
+                Dictionary with all the defined item's user id as key. Used in the paired update system. This dictionary contains the items waitning for a positive update.
+            queue_neg_ dict
+                Dictionary with all the defined item's user id as key. Used in the paired update system. This dictionary contains the items waitning for a negative update.
+            adaptive_matrix: np.ndarray
+                A numpy array saving the probability of selection of each player item paires (TODO: Refactor it into an Urn based matrix for better computation performance)
+            game_count: int
+                The number of games we played in the system.
+            item_green_balls: list[int]
+                A list of integers saving the number of green balls in all item urns. It can be used to check whether there is green ball inflation which is against the 
+                assumption of Urnings model. Can be corrected by setting Game.Type.paired_update = True.
+            prop_correct: np.ndarray
+                A numpy array saving the proportion of correct responses in each player and item urnings. It can be used to investigate model fit by plotting it against 
+                the true model predictions using contour plots.
+            number_bin_correct: np.ndarray
+                A numpy array saving the number of responese in each play and item urnings.
+            fit_correct:  np.ndarray
+                A numpy array saving the model implied proportions. It can be used to investigate model fit.
+        
+        methods:
+            adaptive_rule_normal(self)
+                calculates the probability matrix for adaptive item selection for all player item pairs using the normal method, for details see. Bolsinova et al (2022).
+            adaptive_rule_partial(self, player: Type[Player], item: Type[Player])
+                helper function for more optimal calculation of the probability matrix for adaptive item selection, by only updating the given column and row based on the 
+                player and the item id
+            matchmaking(self, ret_adaptive_matrix: bool = False)
+                function governing the matchmaking by using either the adaptive or the nonadaptive alternatives, it can retrun the updated probability matrix for adaptive
+                item selection
+            urnings_game(player: Type(Player), item: Type(Player))
+                The summary function which set's up the game environment. It activates after item selection and updates the item and player properties
+            play(n_games: int, test: bool = False)
+                The function which starts the Urnings game. Test can be used to let each player play the same amount of games. This feature can be useful with simulation studies
+
+
+
+    """
+    def __init__(self, players: list[Type[Player]], items: list[Type[Player]], game_type: Type[Game_Type], data: Type[AlsData] = None):
+        # initial data for the Urnings frameweok
         self.players = players
         self.items = items
         self.game_type = game_type
         self.data = data
 
+        #containers for the paired update queue
         self.queue_pos = {k.user_id : 0 for k in self.items}
         self.queue_neg = {k.user_id : 0 for k in self.items}
-        self.adaptive_matrix = self.adaptive_rule_normal()
-        self.game_count = 0
-        
-        
+
+        #helper attribute for the paired update queue
         sum_gb_init = 0
         for it in self.items:
             sum_gb_init += it.score
         
         self.item_green_balls = [sum_gb_init]
 
-        #model fit
+        #helper attributes for the adaptive item selection
+        self.adaptive_matrix = self.adaptive_rule_normal()
+        self.game_count = 0
+
+        #arrays to calculate model fit
         if self.game_type.adaptive_urn == False:
             self.game_type.max_urn = self.players[0].urn_size
 
@@ -358,14 +506,12 @@ class Urnings:
         self.number_per_bin = np.zeros((self.game_type.max_urn, self.items[0].urn_size))
         self.fit_correct = np.zeros((self.game_type.max_urn, self.items[0].urn_size))
 
-        #BUGFIX
-        self.bugfix = []
-    
-    #One can define other adaptivity rules, I will add this to gametype later
 
     def adaptive_rule_normal(self):
-        
+        #preallocating the adaptive matrix with shape = players * items
         adaptive_matrix = np.zeros(shape=(len(self.players), len(self.items)))
+
+        #looping through each player item pairs to calculate the item selection probability
         for i in range(len(self.players)):
             for j in range(len(self.items)):
 
@@ -377,9 +523,12 @@ class Urnings:
 
                 adaptive_matrix[i, j] = prob 
 
+        #returns an np.ndarray with item selection probabilites
         return adaptive_matrix
     
-    def adaptive_rule_normal_partial(self, player, item):
+    def adaptive_rule_normal_partial(self, player: Type(Player), item: Type(Player)):
+        #TODO: Find a better solution for finding the player and item ids
+        #creating item and player ids: MATURING
         for pl in range(len(self.players)):
             if player.user_id == self.players[pl].user_id:
                 player_idx = pl
@@ -388,6 +537,7 @@ class Urnings:
             if item.user_id == self.items[it].user_id:
                 item_idx = it
 
+        #filling in the row of the player
         for rw in range(len(self.adaptive_matrix[player_idx,:])):
                 if rw != item_idx:
                     R_i = player.score
@@ -395,7 +545,8 @@ class Urnings:
                     n_i = player.urn_size
                     n_j = self.items[rw].urn_size
                     self.adaptive_matrix[player_idx,rw] = np.exp(-2*(np.log((R_i + 1) / (n_i-R_i + 1)) - np.log((R_j + 1) / (n_j-R_j + 1)))**2)
-            
+        
+        #filling in the column of the player
         for cl in range(len(self.adaptive_matrix[:,item_idx])):
             if cl != player_idx:
                 R_i = self.players[cl].score
@@ -404,16 +555,20 @@ class Urnings:
                 n_j = item.urn_size
                 self.adaptive_matrix[cl, item_idx] = np.exp(-2*(np.log((R_i + 1) / (n_i-R_i + 1)) - np.log((R_j + 1) / (n_j-R_j + 1)))**2)
         
+        #returning an np.ndarray containing item selection probabilites
         return self.adaptive_matrix
 
-    def matchmaking(self, ret_adaptivity_matrix = False):
+    def matchmaking(self, ret_adaptivity_matrix: bool = False):
 
+        #checking whether the game type is adaptive or non-adaptive
+        #randomly selecting an item and a player for a match (used in simulation)
         if self.game_type.adaptivity == "n_adaptive":
             player_index = np.random.randint(0, len(self.players))
             item_index = np.random.randint(0, len(self.items))
             
             return self.players[player_index], self.items[item_index]
 
+        #randomly selecting a player and selecting an item based on the adaptive matrix (used in simulation)
         elif self.game_type.adaptivity == "adaptive":
             adaptive_matrix = self.adaptive_rule_normal()
 
@@ -421,14 +576,9 @@ class Urnings:
             item_index = np.random.choice(np.arange(len(self.items)), 1, p = (adaptive_matrix[player_index,:] / np.sum(adaptive_matrix[player_index,:])))
 
             return self.players[player_index], self.items[int(item_index)]
+        #returns an player, item pair
 
-    def urnings_game(self, player, item):
-        if type(player) != Player:
-            raise TypeError("Player needs to be Player type")
-
-        if type(item) != Player:
-            raise TypeError("Item needs to be Player type")
-
+    def urnings_game(self, player: Type(Player), item: Type(Player)):
         #item and player indexes
         #change this but first make the data analysis work !!!!!!!!!!!!!!
         if self.data is None:
