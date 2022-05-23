@@ -4,6 +4,7 @@
 #ignore ipython notebooks
 *.ipynb
 *.csv
+*.npy
 
 #ignore ideas
 change_point_analysis/

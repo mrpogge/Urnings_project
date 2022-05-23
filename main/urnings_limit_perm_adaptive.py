@@ -26,7 +26,7 @@ for tv in range(len(true_values)):
     for pus in range(len(player_urn_sizes_start)):
         for pue in range(len(player_urn_sizes_end)):
 
-            print("Run no ", counter, "Simulation with true score: ", true_values[tv], " and starting urn size: ", player_urn_sizes_start[pus], 'and ending urn size: ', player_urn_sizes_end[pue], 'n_adaptive')
+            print("Run no ", counter, "Simulation with true score: ", true_values[tv], " and starting urn size: ", player_urn_sizes_start[pus], 'and ending urn size: ', player_urn_sizes_end[pue], 'adaptive')
 
             #np.random.seed(13181918)
 
@@ -44,26 +44,25 @@ for tv in range(len(true_values)):
             players = []
             for i in range(n_player):
                 pname = "player" + str(i) 
-                player = mu.Player(user_id = pname, score = starting_score, urn_size = player_urn_size, true_value = true_values[tv], so_urn_size=16)
+                player = mu.Player(user_id = pname, score = starting_score, urn_size = player_urn_size, true_value = true_values[tv])
                 players.append(player)
 
             items = []
             for i in range(n_items):
                 iname = "item" + str(i)
                 item_starting_score[i] = np.random.binomial(item_urn_sizes, item_true_values[i])
-                item = mu.Player(user_id = iname, score = item_starting_score[i], urn_size = item_urn_sizes, true_value = item_true_values[i])
+                item = mu.Player(user_id = iname, score = int(item_starting_score[i]), urn_size = item_urn_sizes, true_value = item_true_values[i])
                 items.append(item)
 
         
-            game_rule = mu.Game_Type(adaptivity="n_adaptive",
+            game_rule = mu.Game_Type(adaptivity="adaptive",
                                      alg_type="Urnings2",
                                      paired_update= True, 
                                      adaptive_urn=True, 
-                                     adaptive_urn_type="second_order_urnings",
                                      min_urn=player_urn_sizes_start[pus], 
                                      max_urn=player_urn_sizes_end[pue],
                                      window=10, 
-                                     permutation_test=False,
+                                     permutation_test=True,
                                      perm_p_val=0.1)
 
             game_sim = mu.Urnings(players = players, items = items, game_type = game_rule)
@@ -75,7 +74,7 @@ for tv in range(len(true_values)):
 
             counter += 1
 
-np.save("urnings_array_sourn", urnings_array)
+np.save("urnings_array_aurnsize_perm", urnings_array)
 
 
 

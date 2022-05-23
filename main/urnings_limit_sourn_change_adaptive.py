@@ -50,7 +50,7 @@ for cg in range(len(change)):
             for i in range(n_items):
                 iname = "item" + str(i)
                 item_starting_score[i] = np.random.binomial(item_urn_sizes, item_true_values[i])
-                item = mu.Player(user_id = iname, score = item_starting_score[i], urn_size = item_urn_sizes, true_value = item_true_values[i])
+                item = mu.Player(user_id = iname, score = int(item_starting_score[i]), urn_size = item_urn_sizes, true_value = item_true_values[i])
                 items.append(item)
 
 
