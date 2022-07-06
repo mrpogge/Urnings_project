@@ -1,3 +1,6 @@
+from multiprocessing.dummy import Array
+from sqlite3 import adapt
+from tkinter import S
 from matplotlib.style import available
 import pandas as pd
 import numpy as np
@@ -85,6 +88,9 @@ class Player:
         self.so_score = int(np.round(so_urn_size / 2))
         self.so_est = self.so_score / self.so_urn_size
         
+        #stakes
+        self.previous_stake = 1
+
         #creating a container
         self.container = np.array([self.score])
         self.estimate_container = np.array([self.est])
@@ -184,12 +190,15 @@ class Game_Type:
                 updating_type: str = "one_dim", 
                 paired_update: bool = False, 
                 adaptive_urn: bool = False,
-                adaptive_urn_type = None, 
-                min_urn = None,
-                max_urn = None,
-                freq_change = None,
+                adaptive_urn_type: Optional[str] = None, 
+                min_urn: Optional[int] = None,
+                max_urn: Optional[int] = None,
+                min_stakes: int = 1,
+                max_stakes: Optional[int] = None,
+                multiplication_factor: Optional[int] = 1,
+                freq_change: Optional[int] = None,
                 window: int = 2,
-                bound = None,
+                bound: Optional[int] = None,
                 permutation_test: bool = False,
                 n_permutations: int = 1000,
                 perm_p_val: float = 0.05):
@@ -202,6 +211,9 @@ class Game_Type:
         self.adaptive_urn_type = adaptive_urn_type
         self.min_urn = min_urn
         self.max_urn = max_urn
+        self.min_stakes = min_stakes
+        self.max_stakes = max_stakes
+        self.multiplication_factor = multiplication_factor
         self.freq_change = freq_change
         self.window = window
         self.bound = bound
@@ -268,9 +280,11 @@ class Game_Type:
             item.est = item.score / item.urn_size
 
         return result, expected_results
-
-    
-    def updating_rule(self, player: Type[Player], item: Type[Player], result: int, expected_results: int):
+  
+    def updating_rule(self, 
+                      player: Type[Player], 
+                      item: Type[Player], 
+                      result: int, expected_results: int):
         
         if self.updating_type == "one_dim":
             #updating scores
@@ -291,6 +305,69 @@ class Game_Type:
                 item_prop = 0
             
         return player_prop, item_prop
+    
+    def calculate_stakes(self, player:Type[Player], item:Type[Player]):
+        if self.adaptive_urn_type == "stakes_permutation":
+            if len(player.differential_container) >= self.window:
+                conv_stat = player.differential_container[-self.window:]
+                permute_means = np.mean(self.all_comb * conv_stat, axis=1)
+                p_value = 1 - np.sum(permute_means < np.abs(np.mean(conv_stat)))/len(permute_means)
+
+                if p_value < self.perm_p_val:
+                    player.previous_stake = self.max_stakes
+                elif player.previous_stake != 1:
+                    player.previous_stake -= 1 
+
+            if len(item.differential_container) >= self.window:
+                    conv_stat = item.differential_container[-self.window:]
+                    permute_means = np.mean(self.all_comb * conv_stat, axis=1)
+                    p_value = 1 - np.sum(permute_means < np.abs(np.mean(conv_stat)))/len(permute_means)
+
+                    if p_value < self.perm_p_val:
+                        item.previous_stake = self.max_stakes
+                    elif item.previous_stake != 1:
+                        item.previous_stake -= 1 
+            return player.previous_stake, item.previous_stake
+                
+        elif self.adaptive_urn_type == "stakes_second_order_urnings":
+            last_so_player = player.so_container[-1]
+            last_so_item = player.so_container[-1]
+
+            stake_player = round(((np.abs(0.5 - last_so_player) * 10) * self.multiplication_factor)+1)
+            stake_item = round(((np.abs(0.5 - last_so_item) * 10) * self.multiplication_factor)+1)
+        
+            return stake_player, stake_item
+
+    def updating_with_stakes(self, player, item, result, expected_results, stakes_player, stakes_item):
+        if stakes_player >= stakes_item:
+            stake = stakes_player
+        else:
+            stake = stakes_item
+        is_out_bounds_player = ((player.score + stake) > player.urn_size) or ((player.score - stake) < 0)
+        is_out_bounds_item = ((item.score + stake) > item.urn_size) or ((item.score - stake) < 0)
+
+        if is_out_bounds_player == True or is_out_bounds_item == True:
+            player_prop, item_prop = self.updating_rule(player,item,result,expected_results)
+        else:
+            #updating scores
+            player_prop = player.score  + stake * (result - expected_results)
+            item_prop = item.score  + stake * ((1 - result) - (1 - expected_results))
+
+            #Making sure that the urnsize is bigger than the total number of balls obviously
+            if player_prop > player.urn_size:
+                player_prop = player.urn_size
+                
+            if player_prop < 0:
+                player_prop = 0
+                
+            if item_prop > item.urn_size:
+                item_prop = item.urn_size
+                
+            if item_prop < 0:
+                item_prop = 0
+            
+        return player_prop, item_prop
+            
 
     def metropolis_correction(self, player: Type[Player], item: Type[Player], player_proposal: int, item_proposal: int):
         
@@ -307,12 +384,124 @@ class Game_Type:
         
         return metropolis_corrector
 
-    def paired_update(self, item, item_queue_pos, item_queue_neg):
-        None
-    #depriciated!!!!!!!!!!!
-    def adaptivity_correction(self, player, item, player_proposal, item_proposal, proposed_adaptive_matrix = None):
+    def adaptivity_correction(self, player: Type[Player], item: Type[Player], player_proposal: int, item_proposal: int, adaptive_matrix_binned: np.ndarray, item_bins: dict):
+        if self.adaptivity == "adaptive":
+            num_per_bin = [len(item_bins[str(i)]) for i in range(item.urn_size + 1)]
+            current_selection_prob = adaptive_matrix_binned[player.scaled_score, item.score] / np.sum(adaptive_matrix_binned[player.scaled_score, :] * num_per_bin)
+
+            new_num_per_bin = num_per_bin
+            new_num_per_bin[item.score] -= 1
+            new_num_per_bin[item_proposal] += 1
+            player_proposal_scaled = int(player_proposal * (self.max_urn / player.urn_size))
+            proposed_selection_prob = adaptive_matrix_binned[player_proposal_scaled, item_proposal] / np.sum(adaptive_matrix_binned[player_proposal_scaled, :] * new_num_per_bin)
+            adaptivity_corrector = proposed_selection_prob/current_selection_prob
+            
+        else:
+            adaptivity_corrector = 1
         
-        None
+        return adaptivity_corrector
+
+    def paired_update(self, item: Type[Player], items: list[Type[Player]], item_diff: int, queue_neg: dict, queue_pos: dict):
+        if self.item_pair_update == True:
+            if item_diff == 1:
+                if all(i == 0 for i in list(queue_neg.values())):
+                    queue_pos[item.user_id] += 1
+                    if item.score > 0:
+                        item.score -= 1
+                        item.est = item.score / item.urn_size 
+                else:
+                    candidates = {k:v for k,v in queue_neg.items() if v >= 1}
+                    idx = np.random.randint(0, len(candidates.keys()))
+                    candidate_user_id = list(candidates)[idx]
+                    
+                    for it in items:
+                        if it.user_id == candidate_user_id:
+                            candidate_item = it 
+                    
+                    counter = 0
+                    while candidate_item.score <= 0:
+                        candidates = {k:v for k,v in queue_neg.items() if v >= 1}
+                        idx = np.random.randint(0, len(candidates.keys()))
+                        candidate_user_id = list(candidates)[idx]
+                    
+                        for it in items:
+                            if it.user_id == candidate_user_id:
+                                candidate_item = it
+                        counter +=1 
+                        if counter > 100:
+                            break
+                        
+                    queue_neg[candidate_user_id] = 0
+                    candidate_item.score -= 1
+                    candidate_item.est = candidate_item.score / candidate_item.urn_size
+
+            elif item_diff == -1:
+                if all(i == 0 for i in list(queue_pos.values())):
+                    queue_neg[item.user_id] += 1
+                    if item.score < item.urn_size:
+                        item.score += 1
+                        item.est = item.score / item.urn_size 
+                else:
+                    candidates = {k:v for k,v in queue_pos.items() if v >= 1}
+                    idx = np.random.randint(0, len(candidates.keys()))
+                    candidate_user_id = list(candidates)[idx]
+
+                    for it in items:
+                        if it.user_id == candidate_user_id:
+                            candidate_item = it
+                    
+                    counter = 0
+                    while candidate_item.score >= candidate_item.urn_size:
+                        candidates = {k:v for k,v in queue_pos.items() if v >= 1}
+                        idx = np.random.randint(0, len(candidates.keys()))
+                        candidate_user_id = list(candidates)[idx]
+
+                        for it in items:
+                            if it.user_id == candidate_user_id:
+                                candidate_item = it
+                        counter += 1
+                        if counter > 100:
+                            break
+                    
+                    queue_pos[candidate_user_id] = 0
+                    candidate_item.score += 1
+                    candidate_item.est = candidate_item.score / candidate_item.urn_size
+
+    def second_order_urnings(self, player: Type[Player], item: Type[Player], player_diff: int):
+        so_diff = player_diff
+        if so_diff == -1:
+            so_diff = 0
+
+        #drawing estimate for the player and the item 
+        player.so_est = (player.so_score + so_diff) / (player.so_urn_size + 1)
+        item.so_est = (item.so_score + 1 - so_diff) / (item.so_urn_size + 1)
+        while player.sim_y == item.sim_y:
+            player.so_draw()
+            item.so_draw()    
+
+        expected_results = player.sim_y
+        player.sim_y = item.sim_y = 8
+        
+        #updating 
+        player.so_score = player.so_score + so_diff - expected_results
+        item.so_score = item.so_score + (1 - so_diff) - (1 - expected_results)
+    
+        if player.so_score > player.so_urn_size:
+            player.so_score = player.so_urn_size
+            
+        if player.so_score <= 0:
+            player.so_score = 0
+            
+        if item.so_score > item.so_urn_size:
+            item.so_score = item.so_urn_size
+            
+        if item.so_score <= 0:
+            item.so_score = 0 
+        
+        player.so_est = player.so_score / player.so_urn_size
+        item.so_est = item.so_score / item.so_urn_size
+                
+        return player.so_est, item.so_est             
                 
     def adaptive_urn_change(self, player: Type[Player]):
         
@@ -348,7 +537,7 @@ class Game_Type:
 
             elif self.adaptive_urn_type == "second_order_urnings":
                 if len(player.so_container) >= self.window and len(player.so_container) % self.window == 0:
-                    draw_urn_control = np.sum(np.random.binomial(1, player.so_container[-1], 2))
+                    draw_urn_control = np.sum(np.random.binomial(1, np.mean(player.so_container[-self.window:]), 2))
                     if draw_urn_control != 1 and player.urn_container[-1] > self.min_urn :
                         player.urn_size = player.urn_container[-1] / 2
                         player.score = int(np.round(player.score / 2))
@@ -371,6 +560,11 @@ class AlsData:
         self.player_punchcard = self.punchcard()[0]
         self.item_punchcard = self.punchcard()[1]
 
+        self.players = []
+        self.items = []
+        self.player_queue = []
+        self.item_queue = []
+
         if self.game_id is None:
             self.game_id = np.arange(0, len(player_id)-1)
     
@@ -386,22 +580,21 @@ class AlsData:
         for pl in range(len(player_set)):
             player = Player(player_set[pl], player_starting_score, player_urn_size, None, so_urn_size)
             player.idx = pl
-            players.append(player)
+            self.players.append(player)
 
             punchcard_manual_player[pl, :] = player_set[pl], pl
         
         for it in range(len(item_set)):
             item = Player(item_set[it], item_starting_score, item_urn_size, so_urn_size)
             item.idx = it
-            items.append(item)
+            self.items.append(item)
 
             punchcard_manual_item[it] = item_set[it], it
         
-        return players, items, punchcard_manual_player, punchcard_manual_item
+        return self.players, self.items, punchcard_manual_player, punchcard_manual_item
     
     #hidden method
     def punchcard(self):
-        
         player_set = list(set(self.player_id))
         item_set = list(set(self.item_id))
         punchcard_manual_player = np.zeros((len(player_set), 2))
@@ -414,7 +607,16 @@ class AlsData:
             punchcard_manual_item[it] = item_set[it], it
 
         return punchcard_manual_player, punchcard_manual_item
-
+    
+    def makeQueueFromPunchcard(self):
+        
+        for plid in self.player_id:
+            pl_slicer = int(np.where(self.player_punchcard[:,0] == plid)[0])
+            self.player_queue.append(self.players[int(self.player_punchcard[pl_slicer, 1])])
+        for itid in self.item_id:
+            it_slicer = int(np.where(self.item_punchcard[:,0] == itid)[0])
+            self.item_queue.append(self.items[int(self.item_punchcard[it_slicer, 1])])
+    
         
 class Urnings:
     """
@@ -495,8 +697,22 @@ class Urnings:
         sum_gb_init = 0
         for it in self.items:
             sum_gb_init += it.score
-        
+
+        sum_gb_init_all = 0
+        for pl in self.players:
+            sum_gb_init_all += pl.score
+
+        sum_gb_init_all += sum_gb_init        
         self.item_green_balls = [sum_gb_init]
+        self.total_green_balls = [sum_gb_init_all]
+
+        sum_total_init = 0
+        for it in self.items:
+            sum_total_init += it.urn_size
+        for pl in self.players:
+            sum_total_init += pl.urn_size
+
+        self.total_num_balls = [sum_total_init]
 
         #arrays to calculate model fit
         if self.game_type.adaptive_urn == False:
@@ -505,7 +721,8 @@ class Urnings:
         self.prop_correct = np.zeros((self.game_type.max_urn +1, self.items[0].urn_size+1))
         self.number_per_bin = np.zeros((self.game_type.max_urn +1, self.items[0].urn_size+1))
         self.fit_correct = np.zeros((self.game_type.max_urn +1, self.items[0].urn_size+1))
-
+        self.adaptive_correct = np.zeros((self.game_type.max_urn +1, self.items[0].urn_size + 1))
+        
         #helper attributes for the adaptive item selection
         for pl in self.players:
             pl.scaled_score = int(pl.score * (self.game_type.max_urn / pl.urn_size))
@@ -565,41 +782,37 @@ class Urnings:
             return self.players[player_id], item
         
     def urnings_game(self, player: Type[Player], item: Type[Player]):
-        #item and player indexes
+        self.adaptive_correct[player.scaled_score, item.score] += 1
+        #--------------------------------------calculate the estimated response-----------------------------------------#
         if self.data is None:
             result, expected_results = self.game_type.draw_rule(player, item) 
         else:
-            player_idx = player.idx
-            item_idx = item.idx
             result = self.data.correct_answer[self.game_count]
             result, expected_results = self.game_type.draw_rule(player, item, data_bool = True, result_data = result)
 
-            
-        player_proposal, item_proposal = self.game_type.updating_rule(player, item, result, expected_results)
-         
-
-        if self.game_type.adaptivity == "adaptive":
-            num_per_bin = [len(self.item_bins[str(i)]) for i in range(self.items[0].urn_size + 1)]
-            current_selection_prob = self.adaptive_matrix_binned[player.scaled_score, item.score] / np.sum(self.adaptive_matrix_binned[player.scaled_score, :] * num_per_bin)
-
-            new_num_per_bin = num_per_bin
-            new_num_per_bin[item.score] -= 1
-            new_num_per_bin[item_proposal] += 1
-            player_proposal_scaled = int(player_proposal * (self.game_type.max_urn / player.urn_size))
-            proposed_selection_prob = self.adaptive_matrix_binned[player_proposal_scaled, item_proposal] / np.sum(self.adaptive_matrix_binned[player_proposal_scaled, :] * new_num_per_bin)
-            adaptivity_corrector = proposed_selection_prob/current_selection_prob
+        #--------------------------------------update the urnings -----------------------------------------------------#
+        if self.game_type.adaptive_urn_type == "stakes_second_order_urnings" or self.game_type.adaptive_urn_type == "stakes_permutation":
+            player_stake, item_stake = self.game_type.calculate_stakes(player, item)
+            player_proposal, item_proposal = self.game_type.updating_with_stakes(player, item, result, expected_results, player_stake, item_stake)
         else:
-            adaptivity_corrector = 1
+            player_proposal, item_proposal = self.game_type.updating_rule(player, item, result, expected_results)
 
-        #adding the metropolis step if needed
+        #--------------------------------------calculate metropolis correction————————————————————————————————————————–#
+        
+        #correction for adaptivity
+        adaptivity_corrector = self.game_type.adaptivity_correction(player, item, player_proposal, item_proposal, self.adaptive_matrix_binned, self.item_bins)
+
+        #correction for algorithm type
         metropolis_corrector = self.game_type.metropolis_correction(player, item, player_proposal, item_proposal)
         
         acceptance = min(1, metropolis_corrector * adaptivity_corrector)
         u = np.random.uniform()
 
+        #save the previous values for later methods
         player_prev = player.score
         item_prev = item.score
 
+        #metropolis step
         if u < acceptance:
             self.bugfix += 1
             player.score = player_proposal
@@ -608,125 +821,35 @@ class Urnings:
             player.est = player.score / player.urn_size
             item.est = item.score / item.urn_size
 
-        #Paired_update
+        #--------------------------------------Paired Item Update-----------------------------------------------------#
         #calculating the difference
         player_diff = player.score - player_prev
         item_diff = item.score - item_prev
 
-        if self.game_type.item_pair_update == True:
-            if item_diff == 1:
-                if all(i == 0 for i in list(self.queue_neg.values())):
-                    self.queue_pos[item.user_id] += 1
-                    if item.score > 0:
-                        item.score -= 1
-                        item.est = item.score / item.urn_size 
-                else:
-                    candidates = {k:v for k,v in self.queue_neg.items() if v >= 1}
-                    idx = np.random.randint(0, len(candidates.keys()))
-                    candidate_user_id = list(candidates)[idx]
-                    
-                    for it in self.items:
-                        if it.user_id == candidate_user_id:
-                            candidate_item = it 
-                    
-                    counter = 0
-                    while candidate_item.score <= 0:
-                        candidates = {k:v for k,v in self.queue_neg.items() if v >= 1}
-                        idx = np.random.randint(0, len(candidates.keys()))
-                        candidate_user_id = list(candidates)[idx]
-                    
-                        for it in self.items:
-                            if it.user_id == candidate_user_id:
-                                candidate_item = it
-                        counter +=1 
-                        if counter > 100:
-                            break
-                        
-                    self.queue_neg[candidate_user_id] = 0
-                    candidate_item.score -= 1
-                    candidate_item.est = candidate_item.score / candidate_item.urn_size
-            elif item_diff == -1:
-                if all(i == 0 for i in list(self.queue_pos.values())):
-                    self.queue_neg[item.user_id] += 1
-                    if item.score < item.urn_size:
-                        item.score += 1
-                        item.est = item.score / item.urn_size 
-                else:
-                    candidates = {k:v for k,v in self.queue_pos.items() if v >= 1}
-                    idx = np.random.randint(0, len(candidates.keys()))
-                    candidate_user_id = list(candidates)[idx]
-
-                    for it in self.items:
-                        if it.user_id == candidate_user_id:
-                            candidate_item = it
-                    
-                    counter = 0
-                    while candidate_item.score >= candidate_item.urn_size:
-                        candidates = {k:v for k,v in self.queue_pos.items() if v >= 1}
-                        idx = np.random.randint(0, len(candidates.keys()))
-                        candidate_user_id = list(candidates)[idx]
-
-                        for it in self.items:
-                            if it.user_id == candidate_user_id:
-                                candidate_item = it
-                        counter += 1
-                        if counter > 100:
-                            break
-                    
-                    self.queue_pos[candidate_user_id] = 0
-                    candidate_item.score += 1
-                    candidate_item.est = candidate_item.score / candidate_item.urn_size
+        if player_diff > 1:
+            player_diff = 1
+        elif player_diff < -1:
+            player_diff = -1
         
+        if item_diff > 1:
+            item_diff = 1
+        elif item_diff < -1:
+            item_diff = -1
+
+              
+        self.game_type.paired_update(item, self.items, item_diff, self.queue_neg, self.queue_pos)
+
+        #track the changes in the proportion of green balls in the whole system 
+        
+        #-------------------------------------Place items in a new bin after the updating is done---------------------#
         #TODO: Optimise this
         #adaptive item place recalculation
         self.item_bins = {str(i):[] for i in range(self.items[0].urn_size + 1)}
         for it in self.items:
             bin_idx = str(it.score)
             self.item_bins[bin_idx].append(it)
-
-        #SECOND ORDER URNINGS PROTOTYPE
-        if player_diff != 0:
-            if player_diff == -1:
-                player_diff = 0
-
-            #drawing estimate for the player and the item 
-            player.so_est = (player.so_score + player_diff) / (player.so_urn_size + 1)
-            item.so_est = (item.so_score + 1 - player_diff) / (item.so_urn_size + 1)
-            while player.sim_y == item.sim_y:
-                player.so_draw()
-                item.so_draw()    
-
-            expected_results = player.sim_y
-            player.sim_y = item.sim_y = 8
-            
-            #updating 
-            player.so_score = player.so_score + player_diff - expected_results
-            item.so_score = item.so_score + (1-player_diff) - (1 - expected_results)
         
-            if player.so_score > player.so_urn_size:
-                player.so_score = player.so_urn_size
-                
-            if player.so_score <= 0:
-                player.so_score = 0
-                
-            if item.so_score > item.so_urn_size:
-                item.so_score = item.so_urn_size
-                
-            if item.so_score <= 0:
-                item.so_score = 0 
-
-            #print(player.so_est, player.so_score, player_diff, expected_results)
-            
-            player.so_est = player.so_score / player.so_urn_size
-            item.so_est = item.so_score / item.so_urn_size
-        
-        player.so_container = np.append(player.so_container, player.so_est)
-        item.so_container = np.append(item.so_container, item.so_est)
-        
-        #adaptive urn_size
-        self.game_type.adaptive_urn_change(player)
-        player.scaled_score = int(player.score * (self.game_type.max_urn / player.urn_size))
-
+        #------------------------------------Save data before the adaptive urn change algos---------------------------#
         #appending new update to the container
         player.container = np.append(player.container, player.score)
         item.container = np.append(item.container, item.score)
@@ -738,18 +861,30 @@ class Urnings:
         player.differential_container = np.append(player.differential_container, player_diff)
         item.differential_container = np.append(item.differential_container, item_diff)
 
+        #--------------------------------------Adaptive urn change algos----------------------------------------------#
+        #Second Order Urnings
+        player_so_est, item_so_est = self.game_type.second_order_urnings(player, item, player_diff)
+ 
+        #saving the second order urnings
+        player.so_container = np.append(player.so_container, player_so_est)
+        item.so_container = np.append(item.so_container, item_so_est)
+        
+        #-------------------------------------Adaptive urn_size------------------------------------------------------#
+        self.game_type.adaptive_urn_change(player)
+        player.scaled_score = int(player.score * (self.game_type.max_urn / player.urn_size))
+
+        #saving urnings values
         player.urn_container = np.append(player.urn_container, player.urn_size)
         item.urn_container = np.append(item.urn_container, item.urn_size)
 
-        #evaluating fit
-        #updating fit plot's matrices
-
+        #------------------------------------evaluating fit---------------------------------------------------------#
         self.prop_correct[player.scaled_score, item.score] += result
         self.number_per_bin[player.scaled_score, item.score] += 1
         self.fit_correct[player.scaled_score, item.score] += expected_results
+        
             
 
-    def play(self, n_games, test = False):
+    def play(self, n_games: int, test: bool = False):
         if self.data is None:
             for ng in range(n_games):
                 if test == True:
@@ -758,25 +893,31 @@ class Urnings:
                         self.urnings_game(current_player, current_item)
 
                         #calculating the number of green balls in the item urns
+                        sum_total = 0
                         sum_gb = 0
                         for it in self.items:
                             sum_gb += it.score
+                            sum_total += it.urn_size
+                        
+                        sum_gb_all = 0
+                        for pl in self.players:
+                            sum_gb_all += pl.score
+                            sum_total += pl.urn_size
+                        
+                        sum_gb_all += sum_gb
                         
                         self.item_green_balls.append(sum_gb)
+                        self.total_green_balls.append(sum_gb_all)
+                        self.total_num_balls.append(sum_total)
                 else:
                     current_player, current_item = self.matchmaking()
                     self.urnings_game(current_player, current_item)
                 self.game_count += 1
+                
         elif self.data is not None:
             for gm in range(len(self.data.game_id)):
-                current_player_id = self.data.player_id[self.game_count]
-                current_item_id = self.data.item_id[self.game_count]
-                 
-                pl_slicer = int(np.where(self.data.player_punchcard[:,0] == current_player_id)[0])
-                it_slicer = int(np.where(self.data.item_punchcard[:,0] == current_item_id)[0])
-
-                current_player = self.players[int(self.data.player_punchcard[pl_slicer, 1])]
-                current_item = self.items[int(self.data.item_punchcard[it_slicer, 1])]
+                current_player = self.data.player_queue[self.game_count]
+                current_item = self.data.item_queue[self.game_count]
 
                 self.urnings_game(current_player, current_item)
 

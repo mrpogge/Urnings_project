@@ -11,9 +11,9 @@ true_values = [0.6, 0.7, 0.8, 0.9]
 player_urn_sizes = [4, 8, 16, 32, 64]
 
 #fixed parameters
-n_player = 500
+n_player = 200
 n_items = 1000
-item_urn_sizes = 1000
+item_urn_sizes = 100
 n_sim = 100
 
 #container for the results
@@ -40,11 +40,11 @@ for tv in range(len(true_values)):
 
         #creating players and items
         players = []
-        for i in range(n_player):
+        for i in range(int(n_player)):
             pname = "player" + str(i)
             player = mu.Player(user_id = pname, score = starting_score, urn_size = player_urn_size, true_value = true_values[tv])
             players.append(player)
-
+        
         items = []
         for i in range(n_items):
             iname = "item" + str(i)
@@ -53,11 +53,11 @@ for tv in range(len(true_values)):
             items.append(item)
 
 
-        game_rule = mu.Game_Type(adaptivity="adaptive", alg_type="Urnings2", paired_update=True)
+        game_rule = mu.Game_Type(adaptivity="adaptive", alg_type="Urnings2", paired_update=False)
         game_sim = mu.Urnings(players = players, items = items, game_type = game_rule)
         game_sim.play(n_games=n_sim, test = True)
 
-        for pl in range(n_player):
+        for pl in range(int(n_player)):
             row = players[pl].estimate_container
             urnings_array[pl,:, counter] = row
         

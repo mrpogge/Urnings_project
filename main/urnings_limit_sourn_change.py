@@ -43,7 +43,7 @@ for cg in range(len(change)):
             players = []
             for i in range(n_player):
                 pname = "player" + str(i)
-                player = mu.Player(user_id = pname, score = starting_score, urn_size = player_urn_size, true_value = true_value, so_urn_size=16)
+                player = mu.Player(user_id = pname, score = starting_score, urn_size = player_urn_size, true_value = true_value, so_urn_size=8)
                 players.append(player)
 
             items = []
@@ -61,7 +61,7 @@ for cg in range(len(change)):
                                      adaptive_urn_type="second_order_urninhs", 
                                      min_urn=player_urn_sizes_start[pus],
                                      max_urn=player_urn_sizes_end[pue],
-                                     window=15,
+                                     window=10,
                                      permutation_test=False,
                                      perm_p_val=0.2)
             game_sim = mu.Urnings(players = players, items = items, game_type = game_rule)

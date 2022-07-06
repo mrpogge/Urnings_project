@@ -57,13 +57,13 @@ for tv in range(len(true_values)):
         
             game_rule = mu.Game_Type(adaptivity="adaptive",
                                      alg_type="Urnings2",
-                                     paired_update= True, 
+                                     paired_update= False, 
                                      adaptive_urn=True, 
                                      min_urn=player_urn_sizes_start[pus], 
                                      max_urn=player_urn_sizes_end[pue],
                                      window=10, 
                                      permutation_test=True,
-                                     perm_p_val=0.1)
+                                     perm_p_val=0.2)
 
             game_sim = mu.Urnings(players = players, items = items, game_type = game_rule)
             game_sim.play(n_games=n_sim, test = True)

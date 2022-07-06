@@ -45,7 +45,7 @@ for tv in range(len(true_values)):
             players = []
             for i in range(n_player):
                 pname = "player" + str(i) 
-                player = mu.Player(user_id = pname, score = starting_score, urn_size = player_urn_size, true_value = true_values[tv], so_urn_size=16)
+                player = mu.Player(user_id = pname, score = starting_score, urn_size = player_urn_size, true_value = true_values[tv], so_urn_size=8)
                 players.append(player)
 
             items = []
@@ -58,7 +58,7 @@ for tv in range(len(true_values)):
         
             game_rule = mu.Game_Type(adaptivity="adaptive",
                                      alg_type="Urnings2",
-                                     paired_update= True, 
+                                     paired_update= False, 
                                      adaptive_urn=True, 
                                      adaptive_urn_type="second_order_urnings",
                                      min_urn=player_urn_sizes_start[pus], 

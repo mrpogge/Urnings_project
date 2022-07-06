@@ -44,7 +44,7 @@ for tv in range(len(true_values)):
             players = []
             for i in range(n_player):
                 pname = "player" + str(i) 
-                player = mu.Player(user_id = pname, score = starting_score, urn_size = player_urn_size, true_value = true_values[tv], so_urn_size=16)
+                player = mu.Player(user_id = pname, score = starting_score, urn_size = player_urn_size, true_value = true_values[tv], so_urn_size=8)
                 players.append(player)
 
             items = []
