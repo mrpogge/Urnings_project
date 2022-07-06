@@ -43,26 +43,26 @@ for cg in range(len(change)):
             players = []
             for i in range(n_player):
                 pname = "player" + str(i)
-                player = mu.Player(user_id = pname, score = starting_score, urn_size = player_urn_size, true_value = true_value)
+                player = mu.Player(user_id = pname, score = starting_score, urn_size = player_urn_size, true_value = true_value, so_urn_size=8)
                 players.append(player)
 
             items = []
             for i in range(n_items):
                 iname = "item" + str(i)
                 item_starting_score[i] = np.random.binomial(item_urn_sizes, item_true_values[i])
-                item = mu.Player(user_id = iname, score = item_starting_score[i], urn_size = item_urn_sizes, true_value = item_true_values[i])
+                item = mu.Player(user_id = iname, score = int(item_starting_score[i]), urn_size = item_urn_sizes, true_value = item_true_values[i])
                 items.append(item)
 
 
-            game_rule = mu.Game_Type(adaptivity="n_adaptive",
+            game_rule = mu.Game_Type(adaptivity="adaptive",
                                      alg_type="Urnings2",
                                      paired_update=True, 
                                      adaptive_urn=True, 
-                                     adaptive_urn_type="permutation", 
+                                     adaptive_urn_type="second_order_urnings", 
                                      min_urn=player_urn_sizes_start[pus],
                                      max_urn=player_urn_sizes_end[pue],
-                                     window=15,
-                                     permutation_test=True,
+                                     window=10,
+                                     permutation_test=False,
                                      perm_p_val=0.2)
             game_sim = mu.Urnings(players = players, items = items, game_type = game_rule)
 
@@ -79,4 +79,4 @@ for cg in range(len(change)):
             counter += 1
 
 
-np.save("urnings_array_perm_change", urnings_array)
+np.save("urnings_array_sourn_adaptive_change", urnings_array)

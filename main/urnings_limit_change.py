@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-import pickle as pkl 
+import pickle as pkl
 
 #importing the urnings algortihm
 import main_urnings as mu
@@ -25,7 +25,7 @@ counter = 0
 for cg in range(len(change)):
     for pus in range(len(player_urn_sizes)):
 
-        print("Run no ", counter, "Simulation with change: ", change[cg], "per item and urn size: ", player_urn_sizes[pus], "adaptive")
+        print("Run no ", counter, "Simulation with change: ", change[cg], "per item and urn size: ", player_urn_sizes[pus], "n_adaptive")
 
         np.random.seed(13181912) #my student number
         #game settings
@@ -48,11 +48,11 @@ for cg in range(len(change)):
         for i in range(n_items):
             iname = "item" + str(i)
             item_starting_score[i] = np.random.binomial(item_urn_sizes, item_true_values[i])
-            item = mu.Player(user_id = iname, score = item_starting_score[i], urn_size = item_urn_sizes, true_value = item_true_values[i])
+            item = mu.Player(user_id = iname, score = int(item_starting_score[i]), urn_size = item_urn_sizes, true_value = item_true_values[i])
             items.append(item)
 
 
-        game_rule = mu.Game_Type(adaptivity="adaptive", alg_type="Urnings2", paired_update=True)
+        game_rule = mu.Game_Type(adaptivity="n_adaptive", alg_type="Urnings2", paired_update=True)
         game_sim = mu.Urnings(players = players, items = items, game_type = game_rule)
 
         for i in range(n_sim):  
@@ -68,15 +68,5 @@ for cg in range(len(change)):
         counter += 1
 
 
-np.save("urnings_array_limit_change_adaptive", urnings_array)
+np.save("urnings_array_limit_change", urnings_array)
 
-players_file = "players_limit_change_adaptive.pkl"
-items_file = "items_limit_change_adaptive.pkl"
-
-open_players_file = open(players_file, "wb")
-pkl.dump(players, open_players_file)
-open_players_file.close()
-
-open_items_file = open(items_file, "wb")
-pkl.dump(items, open_players_file)
-open_items_file.close()
